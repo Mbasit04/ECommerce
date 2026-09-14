@@ -1,0 +1,1 @@
+@ECommerce_API_HostAddress = http://localhost:5017 GET {{ECommerce_API_HostAddress}}/api/test Accept: application/json ###

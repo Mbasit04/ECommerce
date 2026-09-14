@@ -1,0 +1,271 @@
+﻿using ECommerce.API.Data;
+using ECommerce.API.DTOs.Deal;
+using ECommerce.API.Interfaces;
+using ECommerce.API.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace ECommerce.API.Services
+{
+    public class DealService : IDealService
+    {
+        private readonly ApplicationDbContext _context;
+
+        public DealService(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<DealResponseDto> CreateAsync(
+            CreateDealDto dto,
+            int userId,
+            bool isAdmin)
+        {
+            if (dto.EndDate <= dto.StartDate)
+            {
+                throw new Exception(
+                    "End date must be after start date.");
+            }
+
+            var product = await _context.Products
+                .FirstOrDefaultAsync(x => x.Id == dto.ProductId);
+
+            if (product == null)
+            {
+                throw new Exception("Product not found.");
+            }
+
+            if (!product.IsActive)
+            {
+                throw new Exception(
+                    "Cannot create a deal for an inactive product.");
+            }
+
+            if (!isAdmin && product.SellerId != userId)
+            {
+                throw new UnauthorizedAccessException(
+                    "You can only create deals for your own products.");
+            }
+
+            var overlappingDeal = await _context.Deals
+                .AnyAsync(x =>
+                    x.ProductId == dto.ProductId &&
+                    x.IsActive &&
+                    dto.StartDate < x.EndDate &&
+                    dto.EndDate > x.StartDate);
+
+            if (overlappingDeal)
+            {
+                throw new Exception(
+                    "This product already has an overlapping active deal.");
+            }
+
+            var deal = new Deal
+            {
+                ProductId = dto.ProductId,
+                // Deals are owned by the product's seller. This is also
+                // required by the Deals.SellerId foreign key when an admin
+                // creates a deal on a seller's behalf.
+                SellerId = product.SellerId,
+                DiscountPercentage = dto.DiscountPercentage,
+                StartDate = dto.StartDate,
+                EndDate = dto.EndDate,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.Deals.Add(deal);
+
+            await _context.SaveChangesAsync();
+
+            return await GetByIdAsync(deal.Id)
+                   ?? throw new Exception(
+                       "Unable to retrieve created deal.");
+        }
+
+        public async Task<List<DealResponseDto>> GetAllAsync()
+        {
+            var now = DateTime.UtcNow;
+
+            return await _context.Deals
+                .AsNoTracking()
+                .Include(x => x.Product)
+                .ThenInclude(x => x.Seller)
+                .Select(x => new DealResponseDto
+                {
+                    Id = x.Id,
+
+                    ProductId = x.ProductId,
+
+                    ProductName = x.Product.Name,
+
+                    OriginalPrice = x.Product.Price,
+
+                    DiscountPercentage =
+                        x.DiscountPercentage,
+
+                    DiscountAmount =
+                        x.Product.Price *
+                        x.DiscountPercentage / 100,
+
+                    DealPrice =
+                        x.Product.Price -
+                        (
+                            x.Product.Price *
+                            x.DiscountPercentage / 100
+                        ),
+
+                    StartDate = x.StartDate,
+
+                    EndDate = x.EndDate,
+
+                    IsActive = x.IsActive,
+
+                    IsCurrentlyActive =
+                        x.IsActive &&
+                        x.StartDate <= now &&
+                        x.EndDate >= now,
+
+                    SellerId = x.Product.SellerId,
+
+                    SellerName = x.Product.Seller.FullName
+                })
+                .OrderByDescending(x => x.Id)
+                .ToListAsync();
+        }
+
+        public async Task<DealResponseDto?> GetByIdAsync(int id)
+        {
+            var now = DateTime.UtcNow;
+
+            return await _context.Deals
+                .AsNoTracking()
+                .Include(x => x.Product)
+                .ThenInclude(x => x.Seller)
+                .Where(x => x.Id == id)
+                .Select(x => new DealResponseDto
+                {
+                    Id = x.Id,
+
+                    ProductId = x.ProductId,
+
+                    ProductName = x.Product.Name,
+
+                    OriginalPrice = x.Product.Price,
+
+                    DiscountPercentage =
+                        x.DiscountPercentage,
+
+                    DiscountAmount =
+                        x.Product.Price *
+                        x.DiscountPercentage / 100,
+
+                    DealPrice =
+                        x.Product.Price -
+                        (
+                            x.Product.Price *
+                            x.DiscountPercentage / 100
+                        ),
+
+                    StartDate = x.StartDate,
+
+                    EndDate = x.EndDate,
+
+                    IsActive = x.IsActive,
+
+                    IsCurrentlyActive =
+                        x.IsActive &&
+                        x.StartDate <= now &&
+                        x.EndDate >= now,
+
+                    SellerId = x.Product.SellerId,
+
+                    SellerName = x.Product.Seller.FullName
+                })
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<bool> UpdateAsync(
+            int id,
+            UpdateDealDto dto,
+            int userId,
+            bool isAdmin)
+        {
+            if (dto.EndDate <= dto.StartDate)
+            {
+                throw new Exception(
+                    "End date must be after start date.");
+            }
+
+            var deal = await _context.Deals
+                .Include(x => x.Product)
+                .FirstOrDefaultAsync(x => x.Id == id);
+
+            if (deal == null)
+            {
+                return false;
+            }
+
+            if (!isAdmin &&
+                deal.Product.SellerId != userId)
+            {
+                throw new UnauthorizedAccessException(
+                    "You can only modify your own deals.");
+            }
+
+            var overlappingDeal = await _context.Deals
+                .AnyAsync(x =>
+                    x.Id != id &&
+                    x.ProductId == deal.ProductId &&
+                    x.IsActive &&
+                    dto.StartDate < x.EndDate &&
+                    dto.EndDate > x.StartDate);
+
+            if (overlappingDeal)
+            {
+                throw new Exception(
+                    "The new dates overlap another active deal.");
+            }
+
+            deal.DiscountPercentage =
+                dto.DiscountPercentage;
+
+            deal.StartDate = dto.StartDate;
+
+            deal.EndDate = dto.EndDate;
+
+            deal.IsActive = dto.IsActive;
+
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
+
+        public async Task<bool> DeleteAsync(
+            int id,
+            int userId,
+            bool isAdmin)
+        {
+            var deal = await _context.Deals
+                .Include(x => x.Product)
+                .FirstOrDefaultAsync(x => x.Id == id);
+
+            if (deal == null)
+            {
+                return false;
+            }
+
+            if (!isAdmin &&
+                deal.Product.SellerId != userId)
+            {
+                throw new UnauthorizedAccessException(
+                    "You can only delete your own deals.");
+            }
+
+            _context.Deals.Remove(deal);
+
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
+    }
+}
