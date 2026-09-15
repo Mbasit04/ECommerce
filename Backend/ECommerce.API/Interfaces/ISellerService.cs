@@ -112,5 +112,31 @@ namespace ECommerce.API.Interfaces
         int productId,
         string action,
         UpdateSellerStockDto dto);
+
+        // =========================================================
+        // SELLER SHIPPING (Step 20.1 + 20.2)
+        // =========================================================
+
+        Task<List<SellerShippingDto>>
+            GetSellerShippingAsync(
+                int sellerId);
+
+        Task<SellerShippingDto?>
+            GetSellerShippingByOrderIdAsync(
+                int orderId,
+                int sellerId);
+
+        Task UpdateTrackingNumberAsync(
+            int orderId,
+            int sellerId,
+            string trackingNumber);
+
+        Task ShipOrderAsync(
+            int orderId,
+            int sellerId);
+
+        Task DeliverOrderAsync(
+            int orderId,
+            int sellerId);
     }
 }

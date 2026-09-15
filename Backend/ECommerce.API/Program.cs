@@ -10,6 +10,12 @@ using Microsoft.OpenApi;
 
 using System.Text;
 
+// Stripe.NET ships its own ProductService / CustomerService that
+// collide with ECommerce services when both namespaces are pulled
+// in. Alias StripeConfiguration so the global ApiKey setup is
+// unambiguous.
+using StripeConfig = Stripe.StripeConfiguration;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ==========================================
@@ -55,8 +61,19 @@ builder.Services.AddScoped<StripePaymentService>();
 builder.Services.AddScoped<ISellerService, SellerService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IPaymentService, StripePaymentService>();
+builder.Services.AddScoped<IStripeWebhookService, StripeWebhookService>();
 builder.Services.Configure<StripeSettings>(
     builder.Configuration.GetSection("Stripe"));
+
+// Set the global Stripe API key once at startup so every
+// downstream Stripe.net call reuses it.
+var stripeSecretKey =
+    builder.Configuration["Stripe:SecretKey"];
+
+if (!string.IsNullOrWhiteSpace(stripeSecretKey))
+{
+    StripeConfig.ApiKey = stripeSecretKey;
+}
 
 // ==========================================
 // Swagger

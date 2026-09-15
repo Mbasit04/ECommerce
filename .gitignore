@@ -30,5 +30,9 @@ yarn-error.log*
 Thumbs.db
 **/artifacts/
 Backend/ECommerce.API/appsettings.json
+<<<<<<< HEAD
+=======
+
+>>>>>>> 666e58b (Add  README.md Stripe webhook + Seller shipping API)
 # Environment configuration
 Backend/ECommerce.API/appsettings.Development.json

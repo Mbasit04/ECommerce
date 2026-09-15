@@ -1,8 +1,11 @@
 using System.Security.Claims;
+using ECommerce.API.Configuration;
 using ECommerce.API.DTOs.Payment;
 using ECommerce.API.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+using Stripe;
 
 namespace ECommerce.API.Controllers
 {
@@ -15,11 +18,24 @@ namespace ECommerce.API.Controllers
         private readonly IPaymentService
             _paymentService;
 
+        private readonly IStripeWebhookService
+            _stripeWebhookService;
+
+        private readonly StripeSettings _stripeSettings;
+
         public PaymentController(
-            IPaymentService paymentService)
+            IPaymentService paymentService,
+            IStripeWebhookService stripeWebhookService,
+            IOptions<StripeSettings> stripeSettings)
         {
             _paymentService =
                 paymentService;
+
+            _stripeWebhookService =
+                stripeWebhookService;
+
+            _stripeSettings =
+                stripeSettings.Value;
         }
 
         [HttpPost("create-intent")]
@@ -101,6 +117,95 @@ namespace ECommerce.API.Controllers
                 {
                     message = ex.Message
                 });
+            }
+        }
+
+        // =========================================================
+        // STRIPE WEBHOOK — Stripe is the caller, not a customer.
+        // Signature verification prevents spoofed callbacks.
+        // Returning 500 on handler exception triggers Stripe's
+        // automatic retry — which is safe because
+        // HandleStripePaymentSucceededAsync is fully idempotent.
+        // =========================================================
+
+        [HttpPost("webhook")]
+        [AllowAnonymous]
+        public async Task<IActionResult> StripeWebhook()
+        {
+            string json;
+
+            using (var reader = new StreamReader(
+                HttpContext.Request.Body))
+            {
+                json = await reader.ReadToEndAsync();
+            }
+
+            var signature =
+                Request.Headers["Stripe-Signature"].ToString();
+
+            if (string.IsNullOrWhiteSpace(signature))
+            {
+                return BadRequest(new
+                {
+                    message = "Missing Stripe-Signature header."
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(
+                _stripeSettings.WebhookSecret) ||
+                _stripeSettings.WebhookSecret.StartsWith(
+                    "whsec_REPLACE"))
+            {
+                return BadRequest(new
+                {
+                    message = "WebhookSecret is not configured."
+                });
+            }
+
+            Stripe.Event stripeEvent;
+
+            try
+            {
+                stripeEvent =
+                    EventUtility.ConstructEvent(
+                        json,
+                        signature,
+                        _stripeSettings.WebhookSecret);
+            }
+            catch (StripeException ex)
+            {
+                return BadRequest(new
+                {
+                    message =
+                        $"Invalid signature: {ex.StripeError?.Message ?? ex.Message}"
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message =
+                        $"Webhook parse error: {ex.Message}"
+                });
+            }
+
+            try
+            {
+                await _stripeWebhookService
+                    .HandleEventAsync(stripeEvent);
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                // Returning 500 → Stripe retries. Safe because
+                // the shared handler is idempotent.
+                return StatusCode(
+                    500,
+                    new
+                    {
+                        message = ex.Message
+                    });
             }
         }
 

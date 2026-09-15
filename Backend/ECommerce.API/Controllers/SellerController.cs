@@ -529,6 +529,157 @@ namespace ECommerce.API.Controllers
             }
         }
 
+        // =========================================================
+        // SELLER SHIPPING — STEP 20.1 + 20.2
+        // =========================================================
+
+        // GET ALL SHIPPING RECORDS
+        [HttpGet("shipping")]
+        public async Task<IActionResult> GetShipping()
+        {
+            try
+            {
+                var sellerId = GetUserId();
+
+                var shipping =
+                    await _sellerService
+                        .GetSellerShippingAsync(sellerId);
+
+                return Ok(shipping);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        // GET SHIPPING FOR ONE ORDER
+        [HttpGet("shipping/{orderId:int}")]
+        public async Task<IActionResult> GetShippingByOrderId(
+            int orderId)
+        {
+            try
+            {
+                var sellerId = GetUserId();
+
+                var shipping =
+                    await _sellerService
+                        .GetSellerShippingByOrderIdAsync(
+                            orderId,
+                            sellerId);
+
+                if (shipping == null)
+                {
+                    return NotFound(new
+                    {
+                        message =
+                            "Shipping information not found."
+                    });
+                }
+
+                return Ok(shipping);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        // UPDATE TRACKING NUMBER
+        [HttpPut("shipping/{orderId:int}/tracking")]
+        public async Task<IActionResult> UpdateTracking(
+            int orderId,
+            UpdateTrackingDto dto)
+        {
+            try
+            {
+                var sellerId = GetUserId();
+
+                await _sellerService
+                    .UpdateTrackingNumberAsync(
+                        orderId,
+                        sellerId,
+                        dto.TrackingNumber);
+
+                return Ok(new
+                {
+                    message =
+                        "Tracking number updated successfully."
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        // SHIP ORDER
+        [HttpPut("shipping/{orderId:int}/ship")]
+        public async Task<IActionResult> ShipOrder(
+            int orderId)
+        {
+            try
+            {
+                var sellerId = GetUserId();
+
+                await _sellerService
+                    .ShipOrderAsync(
+                        orderId,
+                        sellerId);
+
+                return Ok(new
+                {
+                    message =
+                        "Order marked as shipped successfully."
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        // DELIVER ORDER
+        [HttpPut("shipping/{orderId:int}/deliver")]
+        public async Task<IActionResult> DeliverOrder(
+            int orderId)
+        {
+            try
+            {
+                var sellerId = GetUserId();
+
+                await _sellerService
+                    .DeliverOrderAsync(
+                        orderId,
+                        sellerId);
+
+                return Ok(new
+                {
+                    message =
+                        "Order marked as delivered successfully."
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
         [HttpPut("change-password")]
         public async Task<IActionResult> ChangePassword(
             ChangeSellerPasswordDto dto)

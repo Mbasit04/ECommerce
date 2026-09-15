@@ -1518,5 +1518,272 @@ namespace ECommerce.API.Services
                 Reason = dto.Reason.Trim()
             };
         }
+
+
+        // =========================================================
+        // SELLER SHIPPING — STEP 20.1 + 20.2
+        // =========================================================
+
+        // GET ALL SHIPPING RECORDS FOR SELLER
+        public async Task<List<SellerShippingDto>>
+            GetSellerShippingAsync(
+                int sellerId)
+        {
+            return await _context.Orders
+                .AsNoTracking()
+                .Include(o => o.Customer)
+                .Include(o => o.Shipping)
+                .Include(o => o.OrderItems)
+                    .ThenInclude(oi => oi.Product)
+                .Where(o =>
+                    o.OrderItems.Any(oi =>
+                        oi.Product.SellerId == sellerId))
+                .OrderByDescending(o => o.CreatedAt)
+                .Select(o => new SellerShippingDto
+                {
+                    OrderId = o.Id,
+
+                    CustomerName =
+                        o.Customer.FullName,
+
+                    ShippingAddress =
+                        o.ShippingAddress ?? string.Empty,
+
+                    City =
+                        o.City ?? string.Empty,
+
+                    PhoneNumber =
+                        o.PhoneNumber ?? string.Empty,
+
+                    TrackingNumber =
+                        o.Shipping != null
+                            ? o.Shipping.TrackingNumber
+                            : null,
+
+                    OrderStatus =
+                        o.Status.ToString(),
+
+                    ShippedAt =
+                        o.Shipping != null
+                            ? o.Shipping.ShippedAt
+                            : null,
+
+                    DeliveredAt =
+                        o.Shipping != null
+                            ? o.Shipping.DeliveredAt
+                            : null
+                })
+                .ToListAsync();
+        }
+
+
+        // GET SINGLE ORDER SHIPPING FOR SELLER
+        public async Task<SellerShippingDto?>
+            GetSellerShippingByOrderIdAsync(
+                int orderId,
+                int sellerId)
+        {
+            return await _context.Orders
+                .AsNoTracking()
+                .Include(o => o.Customer)
+                .Include(o => o.Shipping)
+                .Include(o => o.OrderItems)
+                    .ThenInclude(oi => oi.Product)
+                .Where(o =>
+                    o.Id == orderId &&
+                    o.OrderItems.Any(oi =>
+                        oi.Product.SellerId == sellerId))
+                .Select(o => new SellerShippingDto
+                {
+                    OrderId = o.Id,
+
+                    CustomerName =
+                        o.Customer.FullName,
+
+                    ShippingAddress =
+                        o.ShippingAddress ?? string.Empty,
+
+                    City =
+                        o.City ?? string.Empty,
+
+                    PhoneNumber =
+                        o.PhoneNumber ?? string.Empty,
+
+                    TrackingNumber =
+                        o.Shipping != null
+                            ? o.Shipping.TrackingNumber
+                            : null,
+
+                    OrderStatus =
+                        o.Status.ToString(),
+
+                    ShippedAt =
+                        o.Shipping != null
+                            ? o.Shipping.ShippedAt
+                            : null,
+
+                    DeliveredAt =
+                        o.Shipping != null
+                            ? o.Shipping.DeliveredAt
+                            : null
+                })
+                .FirstOrDefaultAsync();
+        }
+
+
+        // UPDATE TRACKING NUMBER
+        public async Task UpdateTrackingNumberAsync(
+            int orderId,
+            int sellerId,
+            string trackingNumber)
+        {
+            if (string.IsNullOrWhiteSpace(trackingNumber))
+            {
+                throw new Exception(
+                    "Tracking number is required.");
+            }
+
+            var order = await _context.Orders
+                .Include(o => o.Shipping)
+                .Include(o => o.OrderItems)
+                    .ThenInclude(oi => oi.Product)
+                .FirstOrDefaultAsync(o =>
+                    o.Id == orderId &&
+                    o.OrderItems.Any(oi =>
+                        oi.Product.SellerId == sellerId));
+
+            if (order == null)
+            {
+                throw new Exception(
+                    "Order not found.");
+            }
+
+            if (order.Status == OrderStatus.Cancelled)
+            {
+                throw new Exception(
+                    "Cancelled orders cannot be updated.");
+            }
+
+            if (order.Shipping == null)
+            {
+                order.Shipping = new Shipping
+                {
+                    OrderId = order.Id,
+                    Address =
+                        order.ShippingAddress ?? string.Empty,
+                    City =
+                        order.City ?? string.Empty,
+                    ShippingStatus =
+                        order.Status.ToString()
+                };
+            }
+
+            order.Shipping.TrackingNumber =
+                trackingNumber.Trim();
+
+            order.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+        }
+
+
+        // SHIP ORDER
+        public async Task ShipOrderAsync(
+            int orderId,
+            int sellerId)
+        {
+            var order = await _context.Orders
+                .Include(o => o.Shipping)
+                .Include(o => o.OrderItems)
+                    .ThenInclude(oi => oi.Product)
+                .FirstOrDefaultAsync(o =>
+                    o.Id == orderId &&
+                    o.OrderItems.Any(oi =>
+                        oi.Product.SellerId == sellerId));
+
+            if (order == null)
+            {
+                throw new Exception(
+                    "Order not found.");
+            }
+
+            if (order.Status == OrderStatus.Cancelled)
+            {
+                throw new Exception(
+                    "Cancelled orders cannot be shipped.");
+            }
+
+            if (order.Status == OrderStatus.Delivered)
+            {
+                throw new Exception(
+                    "Delivered orders cannot be shipped again.");
+            }
+
+            if (order.Status == OrderStatus.Shipped)
+            {
+                throw new Exception(
+                    "Order is already shipped.");
+            }
+
+            if (order.Shipping == null ||
+                string.IsNullOrWhiteSpace(
+                    order.Shipping.TrackingNumber))
+            {
+                throw new Exception(
+                    "Tracking number must be added before shipping.");
+            }
+
+            order.Status = OrderStatus.Shipped;
+            order.Shipping.ShippingStatus =
+                OrderStatus.Shipped.ToString();
+            order.Shipping.ShippedAt = DateTime.UtcNow;
+
+            order.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+        }
+
+
+        // DELIVER ORDER
+        public async Task DeliverOrderAsync(
+            int orderId,
+            int sellerId)
+        {
+            var order = await _context.Orders
+                .Include(o => o.Shipping)
+                .Include(o => o.OrderItems)
+                    .ThenInclude(oi => oi.Product)
+                .FirstOrDefaultAsync(o =>
+                    o.Id == orderId &&
+                    o.OrderItems.Any(oi =>
+                        oi.Product.SellerId == sellerId));
+
+            if (order == null)
+            {
+                throw new Exception(
+                    "Order not found.");
+            }
+
+            if (order.Status != OrderStatus.Shipped)
+            {
+                throw new Exception(
+                    "Only shipped orders can be marked as delivered.");
+            }
+
+            if (order.Shipping == null)
+            {
+                throw new Exception(
+                    "Shipping information not found.");
+            }
+
+            order.Status = OrderStatus.Delivered;
+            order.Shipping.ShippingStatus =
+                OrderStatus.Delivered.ToString();
+            order.Shipping.DeliveredAt = DateTime.UtcNow;
+
+            order.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+        }
     }
 }

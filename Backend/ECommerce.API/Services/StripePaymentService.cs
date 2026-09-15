@@ -472,5 +472,242 @@ namespace ECommerce.API.Services
             };
         }
 
+
+        // =========================================================
+        // SHARED STRIPE HANDLERS — used by webhook +
+        // recoverable flows. Idempotent via
+        // Transaction.GatewayTransactionId. Never creates
+        // duplicate orders.
+        // =========================================================
+
+        public async Task HandleStripePaymentSucceededAsync(
+            int customerId,
+            PaymentIntent paymentIntent)
+        {
+            if (paymentIntent == null)
+            {
+                throw new Exception("PaymentIntent payload missing.");
+            }
+
+            // ---- 1. IDEMPOTENCY CHECK ----
+            // Single source of truth: if a transaction already
+            // exists for this payment intent, do nothing more.
+            var existing = await _context.Transactions
+                .AsNoTracking()
+                .Include(x => x.Order)
+                    .ThenInclude(x => x.OrderItems)
+                        .ThenInclude(x => x.Product)
+                .Include(x => x.Order)
+                    .ThenInclude(x => x.Shipping)
+                .FirstOrDefaultAsync(x =>
+                    x.GatewayTransactionId == paymentIntent.Id);
+
+            if (existing != null)
+            {
+                // Already finalized. Stripe is just retrying the
+                // webhook; that's fine.
+                return;
+            }
+
+            // ---- 2. LOAD CUSTOMER + CART ----
+            var customer = await _context.Users
+                .FirstOrDefaultAsync(x =>
+                    x.Id == customerId);
+
+            if (customer == null)
+            {
+                throw new Exception(
+                    "Stripe metadata referenced a non-existent customer.");
+            }
+
+            var cart = await _context.Carts
+                .Include(x => x.CartItems)
+                    .ThenInclude(x => x.Product)
+                .FirstOrDefaultAsync(x =>
+                    x.CustomerId == customerId);
+
+            if (cart == null ||
+                !cart.CartItems.Any())
+            {
+                // Cart was cleared (likely a redundant webhook after
+                // ConfirmStripeCheckoutAsync already cleared it).
+                return;
+            }
+
+            // ---- 3. RESOLVE STRIPE PAYMENT METHOD ----
+            var stripePaymentMethod =
+                await _context.PaymentMethods
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.Name == "Stripe");
+
+            if (stripePaymentMethod == null)
+            {
+                throw new Exception(
+                    "Stripe payment method is not configured.");
+            }
+
+            // ---- 4. CREATE ORDER + PAYMENT + TRANSACTION ----
+            var now = DateTime.UtcNow;
+
+            var order = new Order
+            {
+                CustomerId = customerId,
+                Status = OrderStatus.Confirmed,
+                PaymentMethodId = stripePaymentMethod.Id,
+                PaymentMethodType = "Stripe",
+                PaymentStatus = PaymentStatus.Paid,
+                CreatedAt = now,
+                UpdatedAt = now,
+                TotalAmount = 0,
+                // Cart-driven orders don't capture shipping
+                // info at webhook time — that lives on the
+                // order created during the customer's confirm
+                // step. If a prior Pending order exists we
+                // won't touch it.
+                ShippingAddress = customer.Address ?? string.Empty,
+                PhoneNumber = customer.Phone ?? string.Empty
+            };
+
+            _context.Orders.Add(order);
+
+            decimal orderTotal = 0;
+
+            foreach (var cartItem in cart.CartItems)
+            {
+                var product = cartItem.Product;
+
+                if (product == null || !product.IsActive)
+                {
+                    throw new Exception(
+                        "A product in the cart is no longer available.");
+                }
+
+                var deal = await _context.Deals
+                    .Where(x =>
+                        x.ProductId == product.Id &&
+                        x.IsActive &&
+                        x.StartDate <= now &&
+                        x.EndDate >= now)
+                    .OrderByDescending(x =>
+                        x.DiscountPercentage)
+                    .FirstOrDefaultAsync();
+
+                decimal unitPrice = product.Price;
+
+                if (deal != null)
+                {
+                    unitPrice = product.Price -
+                        (
+                            product.Price *
+                            deal.DiscountPercentage /
+                            100
+                        );
+                }
+
+                decimal itemTotal =
+                    unitPrice * cartItem.Quantity;
+
+                order.OrderItems.Add(new OrderItem
+                {
+                    ProductId = product.Id,
+                    Quantity = cartItem.Quantity,
+                    UnitPrice =
+                        Math.Round(unitPrice, 2),
+                    TotalPrice =
+                        Math.Round(itemTotal, 2)
+                });
+
+                orderTotal += itemTotal;
+
+                product.Stock -= cartItem.Quantity;
+            }
+
+            order.TotalAmount =
+                Math.Round(orderTotal, 2);
+
+            // ---- 5. PAYMENT RECORD ----
+            _context.Payments.Add(new Payment
+            {
+                Order = order,
+                PaymentMethodId = stripePaymentMethod.Id,
+                Amount = order.TotalAmount,
+                TransactionId = paymentIntent.Id,
+                PaymentStatus = "Paid",
+                PaidAt = now
+            });
+
+            // ---- 6. TRANSACTION RECORD (idempotency anchor) ----
+            _context.Transactions.Add(new Transaction
+            {
+                Order = order,
+                PaymentMethodId = stripePaymentMethod.Id,
+                TransactionReference =
+                    $"STRIPE-{paymentIntent.Id}",
+                GatewayTransactionId = paymentIntent.Id,
+                Status = PaymentStatus.Paid,
+                Amount = order.TotalAmount,
+                CreatedAt = now
+            });
+
+            // ---- 7. CLEAR CART ----
+            _context.CartItems.RemoveRange(cart.CartItems);
+            cart.UpdatedAt = now;
+
+            await _context.SaveChangesAsync();
+        }
+
+
+        public async Task HandleStripePaymentFailedAsync(
+            PaymentIntent paymentIntent,
+            string failureMessage)
+        {
+            if (paymentIntent == null)
+            {
+                return;
+            }
+
+            var transaction = await _context.Transactions
+                .Include(x => x.Order)
+                .FirstOrDefaultAsync(x =>
+                    x.GatewayTransactionId == paymentIntent.Id);
+
+            if (transaction == null)
+            {
+                // No prior transaction yet — likely the
+                // customer never finished checkout. Nothing
+                // to update.
+                return;
+            }
+
+            // Race-safe: if a succeeded webhook arrives
+            // after a failed one, prefer Paid.
+            if (transaction.Status == PaymentStatus.Paid)
+            {
+                return;
+            }
+
+            transaction.Status = PaymentStatus.Failed;
+
+            if (transaction.Order != null)
+            {
+                transaction.Order.PaymentStatus =
+                    PaymentStatus.Failed;
+                transaction.Order.UpdatedAt =
+                    DateTime.UtcNow;
+            }
+
+            var paymentRecord = await _context.Payments
+                .FirstOrDefaultAsync(x =>
+                    x.OrderId == transaction.OrderId);
+
+            if (paymentRecord != null)
+            {
+                paymentRecord.PaymentStatus = "Failed";
+                paymentRecord.PaidAt = null;
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
     }
 }

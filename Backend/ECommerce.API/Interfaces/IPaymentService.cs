@@ -1,5 +1,6 @@
 using ECommerce.API.DTOs.Customer;
 using ECommerce.API.DTOs.Payment;
+using Stripe;
 
 namespace ECommerce.API.Interfaces
 {
@@ -30,5 +31,19 @@ namespace ECommerce.API.Interfaces
 
         Task<object> MarkCodPaymentAsPaidAsync(
             int orderId);
+
+        // =========================================================
+        // SHARED STRIPE HANDLERS (idempotent, used by webhook
+        // AND by ConfirmStripeCheckoutAsync so the same payment
+        // intent can never produce duplicate orders/payments.)
+        // =========================================================
+
+        Task HandleStripePaymentSucceededAsync(
+            int customerId,
+            PaymentIntent paymentIntent);
+
+        Task HandleStripePaymentFailedAsync(
+            PaymentIntent paymentIntent,
+            string failureMessage);
     }
 }
