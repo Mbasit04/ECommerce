@@ -187,7 +187,7 @@ function App() {
                 <Route path="/profile" element={<CustomerProfile />} />
                 <Route path="/customer/products/:id" element={<ProductDetails />} />
                 <Route path="/messages" element={<CustomerMessages />} />
-                <Route path="/messages/:id" element={<Conversation />} />
+                <Route path="/messages/:id" element={<Conversation  />} />
               </Route>
             </Route>
           </Route>
