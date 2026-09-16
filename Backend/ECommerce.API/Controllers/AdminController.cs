@@ -265,5 +265,62 @@ namespace ECommerce.API.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        // =========================================================
+        // SHIPPING — STEP 20.6 (Admin monitoring view)
+        // =========================================================
+
+        [HttpGet("shipping")]
+        public async Task<IActionResult>
+            GetAllShipping()
+        {
+            try
+            {
+                var shipping =
+                    await _adminService
+                        .GetAllShippingAsync();
+
+                return Ok(shipping);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        [HttpGet("shipping/{orderId:int}")]
+        public async Task<IActionResult>
+            GetShippingByOrderId(
+                int orderId)
+        {
+            try
+            {
+                var shipping =
+                    await _adminService
+                        .GetShippingByOrderIdAsync(
+                            orderId);
+
+                if (shipping == null)
+                {
+                    return NotFound(new
+                    {
+                        message =
+                            "Shipping information not found."
+                    });
+                }
+
+                return Ok(shipping);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
     }
 }

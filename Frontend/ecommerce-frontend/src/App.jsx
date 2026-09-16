@@ -42,6 +42,7 @@ import StockHistory from "./pages/admin/StockHistory";
 import Deals from "./pages/admin/Deals";
 import AddDeal from "./pages/admin/AddDeal";
 import EditDeal from "./pages/admin/EditDeal";
+import AdminShipping from "./pages/admin/AdminShipping";
 
 import SellerDashboard from "./pages/seller/SellerDashboard";
 import SellerProfile from "./pages/seller/SellerProfile";
@@ -123,6 +124,8 @@ function App() {
                 <Route path="deals" element={<Deals />} />
                 <Route path="deals/add" element={<AddDeal />} />
                 <Route path="deals/edit/:id" element={<EditDeal />} />
+
+                <Route path="shipping" element={<AdminShipping />} />
               </Route>
             </Route>
 

@@ -541,5 +541,103 @@ namespace ECommerce.API.Services
 
             return new { message = "Customer deleted successfully." };
         }
+
+
+        // =========================================================
+        // SHIPPING MONITORING — STEP 20.6
+        // =========================================================
+
+        // GET ALL SHIPPING RECORDS (Admin overview)
+        public async Task<List<AdminShippingDto>>
+            GetAllShippingAsync()
+        {
+            return await _context.Orders
+                .AsNoTracking()
+                .Include(o => o.Customer)
+                .Include(o => o.Shipping)
+                .OrderByDescending(o => o.Id)
+                .Select(o => new AdminShippingDto
+                {
+                    OrderId = o.Id,
+
+                    CustomerName =
+                        o.Customer.FullName,
+
+                    ShippingAddress =
+                        o.ShippingAddress ?? string.Empty,
+
+                    City =
+                        o.City ?? string.Empty,
+
+                    PhoneNumber =
+                        o.PhoneNumber ?? string.Empty,
+
+                    TrackingNumber =
+                        o.Shipping != null
+                            ? o.Shipping.TrackingNumber
+                            : null,
+
+                    OrderStatus =
+                        o.Status.ToString(),
+
+                    ShippedAt =
+                        o.Shipping != null
+                            ? o.Shipping.ShippedAt
+                            : null,
+
+                    DeliveredAt =
+                        o.Shipping != null
+                            ? o.Shipping.DeliveredAt
+                            : null
+                })
+                .ToListAsync();
+        }
+
+        // GET SHIPPING FOR ONE ORDER
+        public async Task<AdminShippingDto?>
+            GetShippingByOrderIdAsync(
+                int orderId)
+        {
+            return await _context.Orders
+                .AsNoTracking()
+                .Include(o => o.Customer)
+                .Include(o => o.Shipping)
+                .Where(o => o.Id == orderId)
+                .Select(o => new AdminShippingDto
+                {
+                    OrderId = o.Id,
+
+                    CustomerName =
+                        o.Customer.FullName,
+
+                    ShippingAddress =
+                        o.ShippingAddress ?? string.Empty,
+
+                    City =
+                        o.City ?? string.Empty,
+
+                    PhoneNumber =
+                        o.PhoneNumber ?? string.Empty,
+
+                    TrackingNumber =
+                        o.Shipping != null
+                            ? o.Shipping.TrackingNumber
+                            : null,
+
+                    OrderStatus =
+                        o.Status.ToString(),
+
+                    ShippedAt =
+                        o.Shipping != null
+                            ? o.Shipping.ShippedAt
+                            : null,
+
+                    DeliveredAt =
+                        o.Shipping != null
+                            ? o.Shipping.DeliveredAt
+                            : null
+                })
+                .FirstOrDefaultAsync();
+        }
     }
 }

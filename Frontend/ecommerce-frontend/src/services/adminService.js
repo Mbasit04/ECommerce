@@ -290,3 +290,20 @@ export const deleteAdminDeal = async (id) => {
 
   return response.data;
 };
+
+// =========================
+// ADMIN SHIPPING (Step 20.7)
+// =========================
+
+export const getAdminShipping = async () => {
+  const response = await api.get("/Admin/shipping");
+  return response.data;
+};
+
+export const getAdminShippingByOrderId = async (orderId) => {
+  const response = await api.get(
+    `/Admin/shipping/${orderId}`
+  );
+
+  return response.data;
+};

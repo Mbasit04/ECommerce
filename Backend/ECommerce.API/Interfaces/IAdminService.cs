@@ -25,5 +25,16 @@ namespace ECommerce.API.Interfaces
         Task<object> UpdateCustomerAsync(int id, UpdateCustomerDto dto);
 
         Task<object> DeleteCustomerAsync(int id);
+
+        // =========================================================
+        // SHIPPING MONITORING (Step 20.6)
+        // =========================================================
+
+        Task<List<AdminShippingDto>>
+            GetAllShippingAsync();
+
+        Task<AdminShippingDto?>
+            GetShippingByOrderIdAsync(
+                int orderId);
     }
 }
