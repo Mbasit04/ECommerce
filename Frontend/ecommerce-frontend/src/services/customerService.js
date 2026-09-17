@@ -24,3 +24,12 @@ export const getCustomerProductById = async (id) => {
   const response = await api.get(`/Customer/products/${id}`);
   return response.data;
 };
+
+// =========================
+// ACTIVE DEALS (Phase 21.8)
+// =========================
+
+export const getCustomerDeals = async () => {
+  const response = await api.get('/Customer/deals');
+  return response.data;
+};

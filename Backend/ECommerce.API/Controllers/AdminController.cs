@@ -266,6 +266,32 @@ namespace ECommerce.API.Controllers
             }
         }
 
+        [HttpPut("/api/Admin/deals/{id:int}/toggle-active")]
+        public async Task<IActionResult> ToggleDealActive(int id)
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+
+                var toggled = await _dealService.ToggleActiveAsync(id, userId, isAdmin: true);
+
+                if (!toggled)
+                {
+                    return NotFound(new { message = "Deal not found." });
+                }
+
+                return Ok(new { message = "Deal active state toggled successfully." });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
         // =========================================================
         // SHIPPING — STEP 20.6 (Admin monitoring view)
         // =========================================================

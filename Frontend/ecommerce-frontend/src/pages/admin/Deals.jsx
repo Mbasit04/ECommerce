@@ -4,7 +4,12 @@ import { Link } from "react-router-dom";
 
 import { toast } from "react-toastify";
 
-import { getAdminDeals, deleteAdminDeal } from "../../services/adminService";
+import {
+  getAdminDeals,
+  deleteAdminDeal,
+  activateAdminDeal,
+  deactivateAdminDeal,
+} from "../../services/adminService";
 
 const Deals = () => {
   const [deals, setDeals] = useState([]);
@@ -32,7 +37,7 @@ const Deals = () => {
 
   const handleDelete = async (id) => {
     const confirmed = window.confirm(
-      "Are you sure you want to delete this deal?",
+      "Are you sure you want to delete this deal?"
     );
 
     if (!confirmed) {
@@ -49,6 +54,34 @@ const Deals = () => {
       console.error("Delete deal error:", error);
 
       toast.error(error.response?.data?.message || "Unable to delete deal.");
+    }
+  };
+
+  const handleActivate = async (id) => {
+    try {
+      await activateAdminDeal(id);
+
+      toast.success("Deal activated.");
+
+      loadDeals();
+    } catch (error) {
+      console.error("Activate deal error:", error);
+
+      toast.error(error.response?.data?.message || "Unable to activate deal.");
+    }
+  };
+
+  const handleDeactivate = async (id) => {
+    try {
+      await deactivateAdminDeal(id);
+
+      toast.success("Deal deactivated.");
+
+      loadDeals();
+    } catch (error) {
+      console.error("Deactivate deal error:", error);
+
+      toast.error(error.response?.data?.message || "Unable to deactivate deal.");
     }
   };
 
@@ -104,10 +137,13 @@ const Deals = () => {
                   <tr>
                     <th>ID</th>
                     <th>Product</th>
+                    <th>Seller</th>
                     <th>Discount</th>
+                    <th>Deal Price</th>
                     <th>Start Date</th>
                     <th>End Date</th>
                     <th>Status</th>
+                    <th>Active</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -124,7 +160,17 @@ const Deals = () => {
                           "-"}
                       </td>
 
+                      <td>
+                        {deal.sellerName || "-"}
+                      </td>
+
                       <td>{deal.discountPercentage ?? deal.discount ?? 0}%</td>
+
+                      <td>
+                        {deal.dealPrice != null
+                          ? `Rs. ${Number(deal.dealPrice).toLocaleString()}`
+                          : "-"}
+                      </td>
 
                       <td>
                         {deal.startDate
@@ -141,9 +187,35 @@ const Deals = () => {
                       <td>{getDealStatus(deal.startDate, deal.endDate)}</td>
 
                       <td>
+                        {deal.isActive ? (
+                          <span className="badge bg-success">Yes</span>
+                        ) : (
+                          <span className="badge bg-secondary">No</span>
+                        )}
+                      </td>
+
+                      <td>
+                        {deal.isActive ? (
+                          <button
+                            className="btn btn-sm btn-outline-secondary me-1"
+                            onClick={() => handleDeactivate(deal.id)}
+                            title="Deactivate"
+                          >
+                            Deactivate
+                          </button>
+                        ) : (
+                          <button
+                            className="btn btn-sm btn-outline-success me-1"
+                            onClick={() => handleActivate(deal.id)}
+                            title="Activate"
+                          >
+                            Activate
+                          </button>
+                        )}
+
                         <Link
                           to={`/admin/deals/edit/${deal.id}`}
-                          className="btn btn-sm btn-warning me-2"
+                          className="btn btn-sm btn-warning me-1"
                         >
                           Edit
                         </Link>

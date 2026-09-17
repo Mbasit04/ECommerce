@@ -23,5 +23,10 @@ namespace ECommerce.API.Interfaces
             int id,
             int userId,
             bool isAdmin);
+
+        Task<bool> ToggleActiveAsync(
+            int id,
+            int userId,
+            bool isAdmin);
     }
 }

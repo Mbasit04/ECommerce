@@ -267,5 +267,33 @@ namespace ECommerce.API.Services
 
             return true;
         }
+
+        public async Task<bool> ToggleActiveAsync(
+            int id,
+            int userId,
+            bool isAdmin)
+        {
+            var deal = await _context.Deals
+                .Include(x => x.Product)
+                .FirstOrDefaultAsync(x => x.Id == id);
+
+            if (deal == null)
+            {
+                return false;
+            }
+
+            if (!isAdmin &&
+                deal.Product.SellerId != userId)
+            {
+                throw new UnauthorizedAccessException(
+                    "You can only modify your own deals.");
+            }
+
+            deal.IsActive = !deal.IsActive;
+
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
     }
 }

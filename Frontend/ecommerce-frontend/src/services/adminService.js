@@ -291,6 +291,22 @@ export const deleteAdminDeal = async (id) => {
   return response.data;
 };
 
+export const activateAdminDeal = async (id) => {
+  const response = await api.put(
+    `/Admin/deals/${id}/toggle-active`
+  );
+
+  return response.data;
+};
+
+export const deactivateAdminDeal = async (id) => {
+  const response = await api.put(
+    `/Admin/deals/${id}/toggle-active`
+  );
+
+  return response.data;
+};
+
 // =========================
 // ADMIN SHIPPING (Step 20.7)
 // =========================

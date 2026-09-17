@@ -1,8 +1,11 @@
 using System.Security.Claims;
 using ECommerce.API.DTOs.Customer;
+using ECommerce.API.DTOs.Deal;
+using ECommerce.API.Data;
 using ECommerce.API.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace ECommerce.API.Controllers
 {
@@ -12,12 +15,15 @@ namespace ECommerce.API.Controllers
     public class CustomerController : ControllerBase
     {
         private readonly ICustomerService _customerService;
+        private readonly ApplicationDbContext _context;
 
         public CustomerController(
-            ICustomerService customerService)
+            ICustomerService customerService,
+            ApplicationDbContext context)
         {
             _customerService =
                 customerService;
+            _context = context;
         }
 
 
@@ -175,6 +181,84 @@ namespace ECommerce.API.Controllers
             }
 
             return Ok(product);
+        }
+
+
+        // =========================================================
+        // GET ACTIVE DEALS (PHASE 21.8 — Customer Deal Display)
+        // =========================================================
+
+        [AllowAnonymous]
+        [HttpGet("deals")]
+        public async Task<IActionResult> GetActiveDeals()
+        {
+            var now = DateTime.UtcNow;
+
+            var deals = await _context.Deals
+                .AsNoTracking()
+                .Include(d => d.Product)
+                .Include(d => d.Seller)
+                .Where(d =>
+                    d.IsActive &&
+                    d.StartDate <= now &&
+                    d.EndDate >= now &&
+                    d.Product != null &&
+                    d.Product.IsActive)
+                .OrderByDescending(d => d.DiscountPercentage)
+                .Select(d => new DealResponseDto
+                {
+                    Id = d.Id,
+
+                    ProductId = d.ProductId,
+
+                    ProductName =
+                        d.Product != null
+                            ? d.Product.Name
+                            : string.Empty,
+
+                    OriginalPrice =
+                        d.Product != null
+                            ? d.Product.Price
+                            : 0,
+
+                    DiscountPercentage =
+                        d.DiscountPercentage,
+
+                    DiscountAmount =
+                        d.Product != null
+                            ? Math.Round(
+                                d.Product.Price *
+                                d.DiscountPercentage / 100,
+                                2)
+                            : 0,
+
+                    DealPrice =
+                        d.Product != null
+                            ? Math.Round(
+                                d.Product.Price -
+                                (d.Product.Price *
+                                 d.DiscountPercentage / 100),
+                                2)
+                            : 0,
+
+                    StartDate = d.StartDate,
+
+                    EndDate = d.EndDate,
+
+                    IsActive = d.IsActive,
+
+                    IsCurrentlyActive = true,
+
+                    SellerId = d.SellerId,
+
+                    SellerName =
+                        d.Seller != null
+                            ? d.Seller.FullName
+                            : string.Empty
+                })
+                .ToListAsync();
+
+            return Ok(deals);
         }
 
 
