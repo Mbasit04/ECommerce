@@ -138,5 +138,20 @@ namespace ECommerce.API.Interfaces
         Task DeliverOrderAsync(
             int orderId,
             int sellerId);
+
+        // =========================================================
+        // PHASE 23 — SELLER REVIEW VISIBILITY
+        // =========================================================
+
+        // Reviews only for products owned by the seller in JWT — sellers
+        // can read what their customers are saying but cannot moderate.
+        Task<List<SellerReviewDto>>
+            GetSellerReviewsAsync(
+                int sellerId);
+
+        Task<SellerReviewDto?>
+            GetSellerReviewByIdAsync(
+                int reviewId,
+                int sellerId);
     }
 }

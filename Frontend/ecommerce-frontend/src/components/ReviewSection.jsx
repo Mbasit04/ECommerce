@@ -3,8 +3,12 @@ import React, { useEffect, useMemo, useState } from "react";
 import StarRating from "./StarRating";
 import {
   averageRating,
-  getProductFeedback,
+  deleteReview,
+  getMyProductReview,
+  getProductRatingSummary,
+  getProductReviews,
   ratingDistribution,
+  updateReview,
 } from "../services/feedbackService";
 
 // Helpers ----------------------------------------------------------------
@@ -23,69 +27,203 @@ const formatDate = (value) => {
   });
 };
 
+const initials = (name) => {
+  if (!name) return "U";
+
+  const parts = String(name).trim().split(/\s+/);
+
+  return (parts[0]?.[0] || "U").toUpperCase();
+};
+
+const StarPicker = ({ value, onChange, disabled }) => {
+  const [hover, setHover] = useState(0);
+
+  return (
+    <div className="d-flex align-items-center gap-1" aria-label="Pick a star rating">
+      {[1, 2, 3, 4, 5].map((star) => {
+        const active = hover > 0 ? star <= hover : star <= value;
+
+        return (
+          <button
+            key={star}
+            type="button"
+            className="btn btn-link p-0 m-0"
+            style={{
+              fontSize: "1.6rem",
+              lineHeight: 1,
+              color: active ? "#f5b301" : "#d6d6d6",
+              textDecoration: "none",
+              pointerEvents: disabled ? "none" : "auto",
+            }}
+            onMouseEnter={() => !disabled && setHover(star)}
+            onMouseLeave={() => !disabled && setHover(0)}
+            onClick={() => !disabled && onChange(star)}
+            aria-label={`${star} star${star === 1 ? "" : "s"}`}
+            disabled={disabled}
+          >
+            ★
+          </button>
+        );
+      })}
+
+      <span className="ms-2 small text-muted">
+        {value ? `${value}/5` : "Pick a rating"}
+      </span>
+    </div>
+  );
+};
+
 // Component --------------------------------------------------------------
 
-const ReviewSection = ({ productId, reviews: reviewsProp }) => {
-  // Two display modes:
-  //   1) Pass `reviews` (and optionally `loading` / `error`) — typically from
-  //      the parent ProductDetails page so it can show the average rating
-  //      near the price and reuse the same fetch.
-  //   2) Pass only `productId` — ReviewSection fetches on its own. Useful
-  //      when you want a drop-in "reviews block" without managing state.
-  const [reviews, setReviews] = useState(reviewsProp || []);
-  const [loading, setLoading] = useState(reviewsProp == null);
+const ReviewSection = ({ productId }) => {
+  const [reviews, setReviews] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [myReview, setMyReview] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // Edit form state
+  const [editing, setEditing] = useState(false);
+  const [editRating, setEditRating] = useState(5);
+  const [editComment, setEditComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
   useEffect(() => {
-    // Parent provided the data — nothing to fetch.
-    if (reviewsProp != null) {
-      setReviews(reviewsProp);
-      setLoading(false);
-      return undefined;
-    }
+    setIsLoggedIn(Boolean(localStorage.getItem("token")));
+  }, []);
 
-    let cancelled = false;
+  const loadAll = async () => {
+    if (!productId) return;
 
-    const load = async () => {
-      if (!productId) return;
+    try {
+      setLoading(true);
+      setError("");
 
-      try {
-        setLoading(true);
-        setError("");
+      const [reviewsData, summaryData] = await Promise.all([
+        getProductReviews(productId).catch(() => []),
+        getProductRatingSummary(productId).catch(() => null),
+      ]);
 
-        const data = await getProductFeedback(productId);
+      setReviews(Array.isArray(reviewsData) ? reviewsData : []);
+      setSummary(summaryData);
 
-        if (!cancelled) {
-          setReviews(Array.isArray(data) ? data : []);
-        }
-      } catch (err) {
-        console.error("ReviewSection load error:", err);
-
-        if (!cancelled) {
-          setError(
-            err.response?.data?.message || "Unable to load reviews.",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
+      // My-review lookup is authenticated — skip on 401.
+      if (isLoggedIn) {
+        try {
+          const mine = await getMyProductReview(productId);
+          setMyReview(mine && mine.id ? mine : null);
+        } catch (innerErr) {
+          setMyReview(null);
         }
       }
-    };
+    } catch (err) {
+      console.error("ReviewSection load error:", err);
+      setError(err.response?.data?.message || "Unable to load reviews.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    load();
+  useEffect(() => {
+    loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId, isLoggedIn]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [productId, reviewsProp]);
+  // Use server-computed summary if available, fall back to client maths.
+  const computedAvg = useMemo(
+    () => averageRating(reviews),
+    [reviews],
+  );
 
-  const avg = useMemo(() => averageRating(reviews), [reviews]);
-  const distribution = useMemo(
+  const computedDistribution = useMemo(
     () => ratingDistribution(reviews),
     [reviews],
   );
-  const total = reviews.length;
+
+  const avg = summary && summary.reviewCount > 0
+    ? Number(summary.averageRating)
+    : computedAvg;
+
+  const distribution = summary && summary.reviewCount > 0
+    ? {
+        5: summary.fiveStar || 0,
+        4: summary.fourStar || 0,
+        3: summary.threeStar || 0,
+        2: summary.twoStar || 0,
+        1: summary.oneStar || 0,
+      }
+    : computedDistribution;
+
+  const total = summary?.reviewCount ?? reviews.length;
+
+  const startEdit = () => {
+    if (!myReview) return;
+
+    setEditRating(myReview.rating || 5);
+    setEditComment(myReview.comment || "");
+    setEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setEditing(false);
+    setEditRating(5);
+    setEditComment("");
+  };
+
+  const submitEdit = async () => {
+    if (!myReview) return;
+
+    if (!editRating || editRating < 1 || editRating > 5) {
+      window.alert("Please pick a rating between 1 and 5.");
+      return;
+    }
+
+    if (!editComment.trim()) {
+      window.alert("Review comment cannot be empty.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await updateReview(myReview.id, {
+        rating: editRating,
+        comment: editComment.trim(),
+      });
+      setEditing(false);
+      await loadAll();
+    } catch (err) {
+      window.alert(
+        err.response?.data?.message || "Unable to update review.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!myReview) return;
+
+    const ok = window.confirm(
+      "Are you sure you want to delete your review?",
+    );
+
+    if (!ok) return;
+
+    try {
+      setSubmitting(true);
+      await deleteReview(myReview.id);
+      setMyReview(null);
+      setEditing(false);
+      await loadAll();
+    } catch (err) {
+      window.alert(
+        err.response?.data?.message || "Unable to delete review.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <section className="mt-5" id="customer-reviews">
@@ -167,48 +305,138 @@ const ReviewSection = ({ productId, reviews: reviewsProp }) => {
             </div>
           </div>
 
-          {/* List */}
+          {/* Own review — edit / delete */}
+          {isLoggedIn && myReview && !editing && (
+            <div className="card border-primary mb-4 shadow-sm">
+              <div className="card-body">
+                <div className="d-flex flex-wrap align-items-center justify-content-between mb-2 gap-2">
+                  <h6 className="mb-0">Your review</h6>
+                  <div className="d-flex gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary"
+                      onClick={startEdit}
+                      disabled={submitting}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-danger"
+                      onClick={handleDelete}
+                      disabled={submitting}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+                <StarRating value={myReview.rating} size="sm" />
+                <p className="mb-0 mt-2">{myReview.comment}</p>
+                <small className="text-muted">
+                  Posted {formatDate(myReview.createdAt)}
+                  {myReview.updatedAt && " · edited"}
+                </small>
+              </div>
+            </div>
+          )}
+
+          {/* Edit form */}
+          {isLoggedIn && myReview && editing && (
+            <div className="card border-primary mb-4 shadow-sm">
+              <div className="card-body">
+                <h6 className="mb-3">Edit your review</h6>
+
+                <div className="mb-3">
+                  <label className="form-label">Rating</label>
+                  <StarPicker
+                    value={editRating}
+                    onChange={setEditRating}
+                    disabled={submitting}
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label">Comment</label>
+                  <textarea
+                    className="form-control"
+                    rows={3}
+                    maxLength={1000}
+                    value={editComment}
+                    onChange={(event) => setEditComment(event.target.value)}
+                    disabled={submitting}
+                  />
+                </div>
+
+                <div className="d-flex gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={submitEdit}
+                    disabled={submitting}
+                  >
+                    {submitting ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary"
+                    onClick={cancelEdit}
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Other reviews */}
           {total === 0 ? (
             <div className="alert alert-info">
               This product doesn't have any reviews yet.
             </div>
           ) : (
             <div className="d-flex flex-column gap-3">
-              {reviews.map((review) => (
-                <article
-                  key={review.id}
-                  className="card shadow-sm"
-                >
-                  <div className="card-body">
-                    <div className="d-flex flex-wrap align-items-center mb-2 gap-2">
-                      <div
-                        className="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center"
-                        style={{
-                          width: "40px",
-                          height: "40px",
-                          fontWeight: 600,
-                        }}
-                        aria-hidden="true"
-                      >
-                        C
+              {reviews
+                .filter(
+                  (review) => !myReview || review.id !== myReview.id,
+                )
+                .map((review) => (
+                  <article
+                    key={review.id}
+                    className="card shadow-sm"
+                  >
+                    <div className="card-body">
+                      <div className="d-flex flex-wrap align-items-center mb-2 gap-2">
+                        <div
+                          className="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center"
+                          style={{
+                            width: "40px",
+                            height: "40px",
+                            fontWeight: 600,
+                          }}
+                          aria-hidden="true"
+                        >
+                          {initials(review.customerName)}
+                        </div>
+
+                        <div className="flex-grow-1">
+                          <div className="fw-semibold">
+                            {review.customerName || "Customer"}
+                          </div>
+                          <small className="text-muted">
+                            {formatDate(review.createdAt)}
+                          </small>
+                        </div>
+
+                        <StarRating value={review.rating} size="sm" />
                       </div>
 
-                      <div className="flex-grow-1">
-                        <div className="fw-semibold">Customer</div>
-                        <small className="text-muted">
-                          {formatDate(review.createdAt)}
-                        </small>
-                      </div>
-
-                      <StarRating value={review.rating} size="sm" />
+                      {review.comment && (
+                        <p className="mb-0 mt-2">{review.comment}</p>
+                      )}
                     </div>
-
-                    {review.comment && (
-                      <p className="mb-0 mt-2">{review.comment}</p>
-                    )}
-                  </div>
-                </article>
-              ))}
+                  </article>
+                ))}
             </div>
           )}
         </>

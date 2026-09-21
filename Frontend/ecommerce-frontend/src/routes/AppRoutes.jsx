@@ -32,6 +32,8 @@ import StripeCheckout from '../pages/customer/StripeCheckout';
 import PaymentSuccess from '../pages/customer/PaymentSuccess';
 
 import ShippingManagement from '../pages/seller/ShippingManagement';
+import SellerReviews from '../pages/seller/SellerReviews';
+import AdminReviews from '../pages/admin/AdminReviews';
 
 const AppRoutes = () => {
   return (
@@ -66,6 +68,7 @@ const AppRoutes = () => {
       <Route element={<AdminRoute />}>
         <Route element={<AdminLayout />}>
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/reviews" element={<AdminReviews />} />
         </Route>
       </Route>
 
@@ -78,6 +81,7 @@ const AppRoutes = () => {
           <Route path="/seller/deals/add" element={<AddDeal />} />
           <Route path="/seller/deals/edit/:id" element={<EditDeal />} />
           <Route path="/seller/orders" element={<ShippingManagement />} />
+          <Route path="/seller/reviews" element={<SellerReviews />} />
         </Route>
       </Route>
     </Routes>

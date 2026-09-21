@@ -719,5 +719,66 @@ namespace ECommerce.API.Controllers
             return int.Parse(
                 claim.Value);
         }
+
+
+        // =========================================================
+        // PHASE 23 — SELLER REVIEW VISIBILITY
+        // =========================================================
+
+        [HttpGet("reviews")]
+        public async Task<IActionResult>
+            GetMyReviews()
+        {
+            try
+            {
+                var sellerId = GetUserId();
+
+                var reviews = await _sellerService
+                    .GetSellerReviewsAsync(
+                        sellerId);
+
+                return Ok(reviews);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        [HttpGet("reviews/{reviewId:int}")]
+        public async Task<IActionResult>
+            GetMyReviewById(
+                int reviewId)
+        {
+            try
+            {
+                var sellerId = GetUserId();
+
+                var review = await _sellerService
+                    .GetSellerReviewByIdAsync(
+                        reviewId,
+                        sellerId);
+
+                if (review == null)
+                {
+                    return NotFound(new
+                    {
+                        message = "Review not found."
+                    });
+                }
+
+                return Ok(review);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
     }
 }

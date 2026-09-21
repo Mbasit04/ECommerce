@@ -70,6 +70,10 @@ const AdminLayout = () => {
           <Link to="/admin/refunds" className="nav-link text-white">
             Refunds
           </Link>
+
+          <Link to="/admin/reviews" className="nav-link text-white">
+            Reviews
+          </Link>
         </nav>
 
         <hr />

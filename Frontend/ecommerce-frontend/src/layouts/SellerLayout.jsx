@@ -80,6 +80,13 @@ const SellerLayout = () => {
             Orders Received
           </Link>
 
+          <Link
+            to="/seller/reviews"
+            className="text-white text-decoration-none p-2 rounded"
+          >
+            Customer Reviews
+          </Link>
+
           <hr />
 
           <button onClick={handleLogout} className="btn btn-danger">

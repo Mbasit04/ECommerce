@@ -1445,5 +1445,169 @@ namespace ECommerce.API.Services
                     .ToList()
             };
         }
+
+
+        // =========================================================
+        // PHASE 23 — REVIEW MANAGEMENT (Customer facing)
+        // =========================================================
+
+        // Same data as GetProductFeedbackAsync but joined with customer
+        // info so the ProductDetails page can render reviewer names.
+        public async Task<List<CustomerReviewDto>>
+            GetProductReviewsAsync(
+                int productId)
+        {
+            return await _context.Feedbacks
+                .AsNoTracking()
+                .Where(x => x.ProductId == productId)
+                .OrderByDescending(x => x.CreatedAt)
+                .Select(x => new CustomerReviewDto
+                {
+                    Id = x.Id,
+                    ProductId = x.ProductId,
+                    ProductName = x.Product.Name,
+                    CustomerId = x.CustomerId,
+                    CustomerName = x.Customer.FullName,
+                    Rating = x.Rating,
+                    Comment = x.Comment,
+                    CreatedAt = x.CreatedAt,
+                    UpdatedAt = x.UpdatedAt
+                })
+                .ToListAsync();
+        }
+
+        // Returns the caller's own review for a product (if any) so the
+        // UI can offer Edit/Delete controls on the ProductDetails page.
+        public async Task<CustomerReviewDto?>
+            GetMyReviewForProductAsync(
+                int customerId,
+                int productId)
+        {
+            return await _context.Feedbacks
+                .AsNoTracking()
+                .Where(x =>
+                    x.CustomerId == customerId &&
+                    x.ProductId == productId)
+                .OrderByDescending(x => x.CreatedAt)
+                .Select(x => new CustomerReviewDto
+                {
+                    Id = x.Id,
+                    ProductId = x.ProductId,
+                    ProductName = x.Product.Name,
+                    CustomerId = x.CustomerId,
+                    CustomerName = x.Customer.FullName,
+                    Rating = x.Rating,
+                    Comment = x.Comment,
+                    CreatedAt = x.CreatedAt,
+                    UpdatedAt = x.UpdatedAt
+                })
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<FeedbackResponseDto>
+            UpdateFeedbackAsync(
+                int customerId,
+                int feedbackId,
+                UpdateFeedbackDto dto)
+        {
+            if (dto.Rating < 1 || dto.Rating > 5)
+            {
+                throw new Exception(
+                    "Rating must be between 1 and 5.");
+            }
+
+            if (string.IsNullOrWhiteSpace(dto.Comment))
+            {
+                throw new Exception("Comment is required.");
+            }
+
+            var feedback = await _context.Feedbacks
+                .FirstOrDefaultAsync(x => x.Id == feedbackId);
+
+            if (feedback == null)
+            {
+                throw new Exception("Review not found.");
+            }
+
+            // Ownership check — a customer may only edit their own review.
+            if (feedback.CustomerId != customerId)
+            {
+                throw new Exception(
+                    "You can only edit your own review.");
+            }
+
+            feedback.Rating = dto.Rating;
+            feedback.Comment = dto.Comment.Trim();
+            feedback.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            var product = await _context.Products
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == feedback.ProductId);
+
+            return new FeedbackResponseDto
+            {
+                Id = feedback.Id,
+                ProductId = feedback.ProductId,
+                ProductName = product?.Name ?? string.Empty,
+                Rating = feedback.Rating,
+                Comment = feedback.Comment,
+                CreatedAt = feedback.CreatedAt
+            };
+        }
+
+        public async Task<bool>
+            DeleteFeedbackAsync(
+                int customerId,
+                int feedbackId)
+        {
+            var feedback = await _context.Feedbacks
+                .FirstOrDefaultAsync(x => x.Id == feedbackId);
+
+            if (feedback == null)
+            {
+                throw new Exception("Review not found.");
+            }
+
+            // Ownership check — see UpdateFeedbackAsync for rationale.
+            if (feedback.CustomerId != customerId)
+            {
+                throw new Exception(
+                    "You can only delete your own review.");
+            }
+
+            _context.Feedbacks.Remove(feedback);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        // Aggregate rating rollup for a single product (average + per-star counts).
+        public async Task<RatingSummaryDto>
+            GetProductRatingSummaryAsync(
+                int productId)
+        {
+            var reviews = await _context.Feedbacks
+                .AsNoTracking()
+                .Where(x => x.ProductId == productId)
+                .Select(x => x.Rating)
+                .ToListAsync();
+
+            var summary = new RatingSummaryDto
+            {
+                ProductId = productId,
+                AverageRating = reviews.Count == 0
+                    ? 0
+                    : Math.Round(reviews.Average(), 2),
+                ReviewCount = reviews.Count,
+                FiveStar = reviews.Count(r => r == 5),
+                FourStar = reviews.Count(r => r == 4),
+                ThreeStar = reviews.Count(r => r == 3),
+                TwoStar = reviews.Count(r => r == 2),
+                OneStar = reviews.Count(r => r == 1)
+            };
+
+            return summary;
+        }
     }
 }

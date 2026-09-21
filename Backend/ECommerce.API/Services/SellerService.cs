@@ -1785,5 +1785,64 @@ namespace ECommerce.API.Services
 
             await _context.SaveChangesAsync();
         }
+
+
+        // =========================================================
+        // PHASE 23 — SELLER REVIEW VISIBILITY
+        // =========================================================
+
+        // All reviews attached to products owned by the caller. The
+        // .Where(r.Product.SellerId == sellerId) guard is what keeps
+        // Seller A from peeking at Seller B's review stream.
+        public async Task<List<SellerReviewDto>>
+            GetSellerReviewsAsync(
+                int sellerId)
+        {
+            return await _context.Feedbacks
+                .AsNoTracking()
+                .Where(x =>
+                    x.Product.SellerId == sellerId)
+                .OrderByDescending(x => x.CreatedAt)
+                .Select(x => new SellerReviewDto
+                {
+                    Id = x.Id,
+                    ProductId = x.ProductId,
+                    ProductName = x.Product.Name,
+                    CustomerId = x.CustomerId,
+                    CustomerName = x.Customer.FullName,
+                    Rating = x.Rating,
+                    Comment = x.Comment,
+                    CreatedAt = x.CreatedAt,
+                    UpdatedAt = x.UpdatedAt
+                })
+                .ToListAsync();
+        }
+
+        // Single-review fetch but still scoped to the seller — a review
+        // that isn't on one of their products is reported as not found.
+        public async Task<SellerReviewDto?>
+            GetSellerReviewByIdAsync(
+                int reviewId,
+                int sellerId)
+        {
+            return await _context.Feedbacks
+                .AsNoTracking()
+                .Where(x =>
+                    x.Id == reviewId &&
+                    x.Product.SellerId == sellerId)
+                .Select(x => new SellerReviewDto
+                {
+                    Id = x.Id,
+                    ProductId = x.ProductId,
+                    ProductName = x.Product.Name,
+                    CustomerId = x.CustomerId,
+                    CustomerName = x.Customer.FullName,
+                    Rating = x.Rating,
+                    Comment = x.Comment,
+                    CreatedAt = x.CreatedAt,
+                    UpdatedAt = x.UpdatedAt
+                })
+                .FirstOrDefaultAsync();
+        }
     }
 }

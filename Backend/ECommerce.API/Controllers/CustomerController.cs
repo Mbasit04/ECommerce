@@ -606,6 +606,149 @@ namespace ECommerce.API.Controllers
 
 
         // =========================================================
+        // PHASE 23 — REVIEW EDIT / DELETE / SUMMARY
+        // =========================================================
+
+        // GET /api/Customer/products/{productId}/reviews
+        // Public. Returns rich review rows (reviewer name included).
+        [AllowAnonymous]
+        [HttpGet("products/{productId:int}/reviews")]
+        public async Task<IActionResult>
+            GetProductReviews(
+                int productId)
+        {
+            try
+            {
+                var reviews = await _customerService
+                    .GetProductReviewsAsync(
+                        productId);
+
+                return Ok(reviews);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        // GET /api/Customer/products/{productId}/reviews/mine
+        // Customer-only. Returns the caller's own review (or null) so the
+        // ProductDetails page can show Edit/Delete buttons next to it.
+        [HttpGet("products/{productId:int}/reviews/mine")]
+        public async Task<IActionResult>
+            GetMyReview(
+                int productId)
+        {
+            try
+            {
+                var customerId = GetUserId();
+
+                var review = await _customerService
+                    .GetMyReviewForProductAsync(
+                        customerId,
+                        productId);
+
+                return Ok(review);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        // GET /api/Customer/products/{productId}/reviews/summary
+        // Public. Average rating + per-star counts for the star-distribution chart.
+        [AllowAnonymous]
+        [HttpGet("products/{productId:int}/reviews/summary")]
+        public async Task<IActionResult>
+            GetProductRatingSummary(
+                int productId)
+        {
+            try
+            {
+                var summary = await _customerService
+                    .GetProductRatingSummaryAsync(
+                        productId);
+
+                return Ok(summary);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        // PUT /api/Customer/reviews/{reviewId}
+        // Customer-only. Ownership is enforced server-side.
+        [HttpPut("reviews/{reviewId:int}")]
+        public async Task<IActionResult>
+            UpdateReview(
+                int reviewId,
+                UpdateFeedbackDto dto)
+        {
+            try
+            {
+                var customerId = GetUserId();
+
+                var updated = await _customerService
+                    .UpdateFeedbackAsync(
+                        customerId,
+                        reviewId,
+                        dto);
+
+                return Ok(updated);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        // DELETE /api/Customer/reviews/{reviewId}
+        // Customer-only. Ownership is enforced server-side.
+        [HttpDelete("reviews/{reviewId:int}")]
+        public async Task<IActionResult>
+            DeleteReview(
+                int reviewId)
+        {
+            try
+            {
+                var customerId = GetUserId();
+
+                await _customerService
+                    .DeleteFeedbackAsync(
+                        customerId,
+                        reviewId);
+
+                return Ok(new
+                {
+                    message =
+                        "Review deleted successfully."
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+
+        // =========================================================
         // START CONVERSATION
         // =========================================================
 

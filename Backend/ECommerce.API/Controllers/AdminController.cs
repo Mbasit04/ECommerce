@@ -467,5 +467,86 @@ namespace ECommerce.API.Controllers
                 });
             }
         }
+
+
+        // =========================================================
+        // PHASE 23 — REVIEW MANAGEMENT
+        // =========================================================
+
+        [HttpGet("reviews")]
+        public async Task<IActionResult>
+            GetAllReviews()
+        {
+            try
+            {
+                var reviews =
+                    await _adminService
+                        .GetAllReviewsAsync();
+
+                return Ok(reviews);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        [HttpGet("reviews/{reviewId:int}")]
+        public async Task<IActionResult>
+            GetReviewById(
+                int reviewId)
+        {
+            try
+            {
+                var review =
+                    await _adminService
+                        .GetReviewByIdAsync(reviewId);
+
+                if (review == null)
+                {
+                    return NotFound(new
+                    {
+                        message = "Review not found."
+                    });
+                }
+
+                return Ok(review);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        [HttpDelete("reviews/{reviewId:int}")]
+        public async Task<IActionResult>
+            DeleteReview(
+                int reviewId)
+        {
+            try
+            {
+                await _adminService
+                    .DeleteReviewAsync(reviewId);
+
+                return Ok(new
+                {
+                    message =
+                        "Review deleted successfully."
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
     }
 }

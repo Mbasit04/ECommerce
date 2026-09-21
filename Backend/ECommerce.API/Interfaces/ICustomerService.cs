@@ -79,6 +79,34 @@ namespace ECommerce.API.Interfaces
         GetProductFeedbackAsync(
         int productId);
 
+        // =========================================================
+        // PHASE 23 — REVIEW OWNERSHIP EDIT / DELETE + SUMMARY
+        // =========================================================
+
+        Task<List<CustomerReviewDto>>
+        GetProductReviewsAsync(
+        int productId);
+
+        Task<CustomerReviewDto?>
+        GetMyReviewForProductAsync(
+        int customerId,
+        int productId);
+
+        Task<FeedbackResponseDto>
+        UpdateFeedbackAsync(
+        int customerId,
+        int feedbackId,
+        UpdateFeedbackDto dto);
+
+        Task<bool>
+        DeleteFeedbackAsync(
+        int customerId,
+        int feedbackId);
+
+        Task<RatingSummaryDto>
+        GetProductRatingSummaryAsync(
+        int productId);
+
         Task<ConversationDetailsResponseDto> StartConversationAsync(
         int customerId,
         StartConversationDto dto);

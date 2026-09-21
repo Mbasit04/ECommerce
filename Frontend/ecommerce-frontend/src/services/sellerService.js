@@ -152,3 +152,22 @@ export const deleteSellerDeal = async (id) => {
   const response = await api.delete(`/Seller/deals/${id}`);
   return response.data;
 };
+
+
+// ============================================================
+// PHASE 23 — SELLER REVIEW VISIBILITY (read-only)
+// ============================================================
+
+// GET /api/Seller/reviews — only this seller's product reviews.
+export const getSellerReviews = async () => {
+  const response = await api.get('/Seller/reviews');
+  return response.data;
+};
+
+// GET /api/Seller/reviews/{reviewId} — single review, must belong to seller.
+export const getSellerReviewById = async (reviewId) => {
+  const response = await api.get(
+    `/Seller/reviews/${reviewId}`
+  );
+  return response.data;
+};

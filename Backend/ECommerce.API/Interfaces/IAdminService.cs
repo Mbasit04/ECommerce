@@ -50,5 +50,15 @@ namespace ECommerce.API.Interfaces
         Task<bool> ApproveRefundAsync(int refundId);
 
         Task<bool> RejectRefundAsync(int refundId);
+
+        // =========================================================
+        // REVIEW MANAGEMENT (Phase 23 — Feedback & Reviews)
+        // =========================================================
+
+        Task<List<AdminReviewDto>> GetAllReviewsAsync();
+
+        Task<AdminReviewDto?> GetReviewByIdAsync(int reviewId);
+
+        Task<bool> DeleteReviewAsync(int reviewId);
     }
 }

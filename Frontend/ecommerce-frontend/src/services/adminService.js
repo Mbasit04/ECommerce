@@ -356,3 +356,28 @@ export const getAdminShippingByOrderId = async (orderId) => {
 
   return response.data;
 };
+
+// =========================
+// REVIEW MANAGEMENT (Phase 23)
+// =========================
+
+export const getAdminReviews = async () => {
+  const response = await api.get("/Admin/reviews");
+  return response.data;
+};
+
+export const getAdminReviewById = async (reviewId) => {
+  const response = await api.get(
+    `/Admin/reviews/${reviewId}`
+  );
+
+  return response.data;
+};
+
+export const deleteAdminReview = async (reviewId) => {
+  const response = await api.delete(
+    `/Admin/reviews/${reviewId}`
+  );
+
+  return response.data;
+};

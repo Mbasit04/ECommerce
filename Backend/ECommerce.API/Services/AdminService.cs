@@ -786,5 +786,74 @@ namespace ECommerce.API.Services
 
             return true;
         }
+
+
+        // =========================================================
+        // PHASE 23 — ADMIN REVIEW MANAGEMENT
+        // =========================================================
+
+        // Admin-level override: list every review across all sellers/customer,
+        // newest first. Used by the Admin Reviews moderation table.
+        public async Task<List<AdminReviewDto>>
+            GetAllReviewsAsync()
+        {
+            return await _context.Feedbacks
+                .AsNoTracking()
+                .OrderByDescending(x => x.CreatedAt)
+                .Select(x => new AdminReviewDto
+                {
+                    Id = x.Id,
+                    ProductId = x.ProductId,
+                    ProductName = x.Product.Name,
+                    CustomerId = x.CustomerId,
+                    CustomerName = x.Customer.FullName,
+                    Rating = x.Rating,
+                    Comment = x.Comment,
+                    CreatedAt = x.CreatedAt,
+                    UpdatedAt = x.UpdatedAt
+                })
+                .ToListAsync();
+        }
+
+        public async Task<AdminReviewDto?>
+            GetReviewByIdAsync(
+                int reviewId)
+        {
+            return await _context.Feedbacks
+                .AsNoTracking()
+                .Where(x => x.Id == reviewId)
+                .Select(x => new AdminReviewDto
+                {
+                    Id = x.Id,
+                    ProductId = x.ProductId,
+                    ProductName = x.Product.Name,
+                    CustomerId = x.CustomerId,
+                    CustomerName = x.Customer.FullName,
+                    Rating = x.Rating,
+                    Comment = x.Comment,
+                    CreatedAt = x.CreatedAt,
+                    UpdatedAt = x.UpdatedAt
+                })
+                .FirstOrDefaultAsync();
+        }
+
+        // Hard-delete the review — admin moderation path. No ownership checks
+        // because admins are allowed to remove any review on the platform.
+        public async Task<bool>
+            DeleteReviewAsync(
+                int reviewId)
+        {
+            var review = await _context.Feedbacks
+                .FirstOrDefaultAsync(x => x.Id == reviewId);
+
+            if (review == null)
+            {
+                throw new Exception("Review not found.");
+            }
+
+            _context.Feedbacks.Remove(review);
+            await _context.SaveChangesAsync();
+            return true;
+        }
     }
 }
