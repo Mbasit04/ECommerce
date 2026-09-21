@@ -35,6 +35,7 @@ import EditProduct from "./pages/admin/EditProduct";
 
 import Orders from "./pages/admin/Orders";
 import OrderDetails from "./pages/admin/OrderDetails";
+import CustomerOrderDetails from "./pages/customer/OrderDetails";
 
 import Stocks from "./pages/admin/Stocks";
 import StockHistory from "./pages/admin/StockHistory";
@@ -43,6 +44,7 @@ import Deals from "./pages/admin/Deals";
 import AddDeal from "./pages/admin/AddDeal";
 import EditDeal from "./pages/admin/EditDeal";
 import AdminShipping from "./pages/admin/AdminShipping";
+import AdminRefunds from "./pages/admin/AdminRefunds";
 
 import SellerDashboard from "./pages/seller/SellerDashboard";
 import SellerProfile from "./pages/seller/SellerProfile";
@@ -126,6 +128,8 @@ function App() {
                 <Route path="deals/edit/:id" element={<EditDeal />} />
 
                 <Route path="shipping" element={<AdminShipping />} />
+
+                <Route path="refunds" element={<AdminRefunds />} />
               </Route>
             </Route>
 
@@ -184,9 +188,9 @@ function App() {
                 <Route path="/checkout/stripe" element={<StripeCheckout />} />
                 <Route path="/customer/checkout/stripe" element={<StripeCheckout />} />
                 <Route path="/orders" element={<MyOrders />} />
-                <Route path="/orders/:id" element={<MyOrders />} />
+                <Route path="/orders/:id" element={<CustomerOrderDetails />} />
                 <Route path="/customer/orders" element={<MyOrders />} />
-                <Route path="/customer/orders/:id" element={<MyOrders />} />
+                <Route path="/customer/orders/:id" element={<CustomerOrderDetails />} />
                 <Route path="/profile" element={<CustomerProfile />} />
                 <Route path="/customer/products/:id" element={<ProductDetails />} />
                 <Route path="/messages" element={<CustomerMessages />} />

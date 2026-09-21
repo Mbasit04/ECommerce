@@ -66,6 +66,10 @@ const AdminLayout = () => {
           <Link to="/admin/shipping" className="nav-link text-white">
             Shipping
           </Link>
+
+          <Link to="/admin/refunds" className="nav-link text-white">
+            Refunds
+          </Link>
         </nav>
 
         <hr />

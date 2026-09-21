@@ -348,5 +348,124 @@ namespace ECommerce.API.Controllers
                 });
             }
         }
+
+        // =========================================================
+        // REFUND MANAGEMENT — PHASE 22
+        // =========================================================
+
+        [HttpGet("refunds")]
+        public async Task<IActionResult> GetAllRefunds()
+        {
+            try
+            {
+                var refunds =
+                    await _adminService
+                        .GetAllRefundsAsync();
+
+                return Ok(refunds);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        [HttpGet("refunds/{refundId:int}")]
+        public async Task<IActionResult>
+            GetRefundById(int refundId)
+        {
+            try
+            {
+                var refund =
+                    await _adminService
+                        .GetRefundByIdAsync(refundId);
+
+                if (refund == null)
+                {
+                    return NotFound(new
+                    {
+                        message = "Refund not found."
+                    });
+                }
+
+                return Ok(refund);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        [HttpPut("refunds/{refundId:int}/approve")]
+        public async Task<IActionResult>
+            ApproveRefund(int refundId)
+        {
+            try
+            {
+                var approved =
+                    await _adminService
+                        .ApproveRefundAsync(refundId);
+
+                if (!approved)
+                {
+                    return NotFound(new
+                    {
+                        message = "Refund not found."
+                    });
+                }
+
+                return Ok(new
+                {
+                    message =
+                        "Refund approved successfully."
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        [HttpPut("refunds/{refundId:int}/reject")]
+        public async Task<IActionResult>
+            RejectRefund(int refundId)
+        {
+            try
+            {
+                var rejected =
+                    await _adminService
+                        .RejectRefundAsync(refundId);
+
+                if (!rejected)
+                {
+                    return NotFound(new
+                    {
+                        message = "Refund not found."
+                    });
+                }
+
+                return Ok(new
+                {
+                    message =
+                        "Refund rejected successfully."
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
     }
 }

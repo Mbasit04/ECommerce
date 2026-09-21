@@ -36,5 +36,19 @@ namespace ECommerce.API.Interfaces
         Task<AdminShippingDto?>
             GetShippingByOrderIdAsync(
                 int orderId);
+
+        // =========================================================
+        // REFUND MANAGEMENT (Phase 22)
+        // =========================================================
+
+        Task<List<AdminRefundDto>>
+            GetAllRefundsAsync();
+
+        Task<AdminRefundDto?>
+            GetRefundByIdAsync(int refundId);
+
+        Task<bool> ApproveRefundAsync(int refundId);
+
+        Task<bool> RejectRefundAsync(int refundId);
     }
 }

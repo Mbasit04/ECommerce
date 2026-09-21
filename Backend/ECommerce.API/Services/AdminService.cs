@@ -639,5 +639,152 @@ namespace ECommerce.API.Services
                 })
                 .FirstOrDefaultAsync();
         }
+
+
+        // =========================================================
+        // REFUND MANAGEMENT — PHASE 22
+        // =========================================================
+
+        public async Task<List<AdminRefundDto>>
+            GetAllRefundsAsync()
+        {
+            return await _context.Refunds
+                .AsNoTracking()
+                .Include(r => r.Customer)
+                .OrderByDescending(r => r.RequestedAt)
+                .Select(r => new AdminRefundDto
+                {
+                    RefundId = r.Id,
+
+                    OrderId = r.OrderId,
+
+                    CustomerId = r.CustomerId,
+
+                    CustomerName =
+                        r.Customer.FullName,
+
+                    CustomerEmail =
+                        r.Customer.Email,
+
+                    Amount = r.Amount,
+
+                    Reason = r.Reason,
+
+                    Status = r.Status,
+
+                    PaymentMethod = r.PaymentMethod,
+
+                    StripeRefundId = r.StripeRefundId,
+
+                    RequestedAt = r.RequestedAt,
+
+                    ProcessedAt = r.ProcessedAt
+                })
+                .ToListAsync();
+        }
+
+        public async Task<AdminRefundDto?>
+            GetRefundByIdAsync(int refundId)
+        {
+            return await _context.Refunds
+                .AsNoTracking()
+                .Include(r => r.Customer)
+                .Where(r => r.Id == refundId)
+                .Select(r => new AdminRefundDto
+                {
+                    RefundId = r.Id,
+
+                    OrderId = r.OrderId,
+
+                    CustomerId = r.CustomerId,
+
+                    CustomerName =
+                        r.Customer.FullName,
+
+                    CustomerEmail =
+                        r.Customer.Email,
+
+                    Amount = r.Amount,
+
+                    Reason = r.Reason,
+
+                    Status = r.Status,
+
+                    PaymentMethod = r.PaymentMethod,
+
+                    StripeRefundId = r.StripeRefundId,
+
+                    RequestedAt = r.RequestedAt,
+
+                    ProcessedAt = r.ProcessedAt
+                })
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<bool> ApproveRefundAsync(
+            int refundId)
+        {
+            var refund = await _context.Refunds
+                .FirstOrDefaultAsync(r =>
+                    r.Id == refundId);
+
+            if (refund == null)
+            {
+                return false;
+            }
+
+            if (!string.Equals(
+                refund.Status,
+                "Requested",
+                StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(
+                    refund.Status,
+                    "Pending",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception(
+                    "Refund cannot be approved in its current state.");
+            }
+
+            refund.Status = "Approved";
+            refund.ProcessedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
+
+        public async Task<bool> RejectRefundAsync(
+            int refundId)
+        {
+            var refund = await _context.Refunds
+                .FirstOrDefaultAsync(r =>
+                    r.Id == refundId);
+
+            if (refund == null)
+            {
+                return false;
+            }
+
+            if (!string.Equals(
+                refund.Status,
+                "Requested",
+                StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(
+                    refund.Status,
+                    "Pending",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception(
+                    "Refund cannot be rejected in its current state.");
+            }
+
+            refund.Status = "Rejected";
+            refund.ProcessedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
     }
 }

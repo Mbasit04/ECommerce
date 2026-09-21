@@ -308,6 +308,39 @@ export const deactivateAdminDeal = async (id) => {
 };
 
 // =========================
+// REFUND MANAGEMENT (Phase 22)
+// =========================
+
+export const getAdminRefunds = async () => {
+  const response = await api.get("/Admin/refunds");
+  return response.data;
+};
+
+export const getAdminRefundById = async (id) => {
+  const response = await api.get(
+    `/Admin/refunds/${id}`
+  );
+
+  return response.data;
+};
+
+export const approveRefund = async (id) => {
+  const response = await api.put(
+    `/Admin/refunds/${id}/approve`
+  );
+
+  return response.data;
+};
+
+export const rejectRefund = async (id) => {
+  const response = await api.put(
+    `/Admin/refunds/${id}/reject`
+  );
+
+  return response.data;
+};
+
+// =========================
 // ADMIN SHIPPING (Step 20.7)
 // =========================
 
