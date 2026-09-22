@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Outlet, Link, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
+import { getCustomerUnreadCount } from "../services/messageService";
 
 const CustomerLayout = () => {
   const { logout, isAuthenticated, user } = useAuth();
@@ -17,6 +18,38 @@ const CustomerLayout = () => {
   });
 
   const isCustomer = isAuthenticated && user?.role === "Customer";
+
+  // Customer-side unread message badge — polled every 30s. Customer
+  // can also re-trigger by hitting the messages page.
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
+  useEffect(() => {
+    if (!isCustomer) {
+      setUnreadMessages(0);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const refreshUnread = async () => {
+      try {
+        const data = await getCustomerUnreadCount();
+        if (!cancelled) {
+          setUnreadMessages(Number(data?.unreadCount) || 0);
+        }
+      } catch (err) {
+        // Unread count is non-critical; ignore failures silently.
+      }
+    };
+
+    refreshUnread();
+    const timer = setInterval(refreshUnread, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [isCustomer, location.pathname]);
 
   // Pulse the cart badge when the count changes (e.g. add / remove).
   const prevCountRef = useRef(cartCount);
@@ -139,6 +172,34 @@ const CustomerLayout = () => {
                 <NavLink to="/orders" className="action-link d-none d-md-inline-flex">
                   <span className="action-icon">📦</span>
                   <span className="action-label">Orders</span>
+                </NavLink>
+              )}
+
+              {isCustomer && (
+                <NavLink
+                  to="/messages"
+                  className="action-link d-none d-md-inline-flex"
+                >
+                  <span
+                    className="action-icon position-relative"
+                    aria-label={
+                      unreadMessages > 0
+                        ? `${unreadMessages} unread messages`
+                        : "Messages"
+                    }
+                  >
+                    💬
+                    {unreadMessages > 0 && (
+                      <span
+                        className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                        style={{ fontSize: "0.65rem" }}
+                      >
+                        {unreadMessages > 99 ? "99+" : unreadMessages}
+                        <span className="visually-hidden">unread</span>
+                      </span>
+                    )}
+                  </span>
+                  <span className="action-label">Messages</span>
                 </NavLink>
               )}
 

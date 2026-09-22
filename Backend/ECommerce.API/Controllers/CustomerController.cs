@@ -874,5 +874,65 @@ namespace ECommerce.API.Controllers
                 });
             }
         }
+
+
+        // =========================================================
+        // PHASE 24 — READ / UNREAD MESSAGE SYSTEM (customer)
+        // =========================================================
+
+        [HttpPut("messages/{messageId:int}/read")]
+        public async Task<IActionResult>
+            MarkMessageRead(
+                int messageId)
+        {
+            try
+            {
+                var customerId = GetUserId();
+
+                await _customerService
+                    .MarkMessageReadAsync(
+                        customerId,
+                        messageId);
+
+                return Ok(new
+                {
+                    message =
+                        "Message marked as read."
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        [HttpGet("messages/unread-count")]
+        public async Task<IActionResult>
+            GetUnreadMessageCount()
+        {
+            try
+            {
+                var customerId = GetUserId();
+
+                var count = await _customerService
+                    .GetUnreadMessageCountAsync(
+                        customerId);
+
+                return Ok(new
+                {
+                    unreadCount = count
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
     }
 }

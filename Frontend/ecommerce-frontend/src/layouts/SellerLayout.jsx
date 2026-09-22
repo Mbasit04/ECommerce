@@ -1,15 +1,51 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { getSellerUnreadCount } from "../services/sellerService";
 
 const SellerLayout = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
 
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
+
+  // Poll the seller-side unread count so the sidebar badge stays in sync.
+  useEffect(() => {
+    let cancelled = false;
+    let timer;
+
+    const refresh = async () => {
+      try {
+        const token = localStorage.getItem("token");
+
+        // Skip polling when no token is present — avoids the 401 redirect
+        // cascade from api.js when the user hasn't logged in yet.
+        if (!token) {
+          return;
+        }
+
+        const data = await getSellerUnreadCount();
+        if (!cancelled) {
+          setUnreadMessages(Number(data?.unreadCount) || 0);
+        }
+      } catch (err) {
+        // Unread count is non-critical; ignore failures silently.
+      }
+    };
+
+    refresh();
+    timer = setInterval(refresh, 30000);
+
+    return () => {
+      cancelled = true;
+      if (timer) clearInterval(timer);
+    };
+  }, []);
 
   return (
     <div className="d-flex min-vh-100">
@@ -85,6 +121,21 @@ const SellerLayout = () => {
             className="text-white text-decoration-none p-2 rounded"
           >
             Customer Reviews
+          </Link>
+
+          <Link
+            to="/seller/messages"
+            className="text-white text-decoration-none p-2 rounded d-flex justify-content-between align-items-center"
+          >
+            <span>Messages</span>
+            {unreadMessages > 0 && (
+              <span
+                className="badge bg-danger rounded-pill"
+                title={`${unreadMessages} unread`}
+              >
+                {unreadMessages > 99 ? "99+" : unreadMessages}
+              </span>
+            )}
           </Link>
 
           <hr />

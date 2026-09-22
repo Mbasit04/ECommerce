@@ -1609,5 +1609,51 @@ namespace ECommerce.API.Services
 
             return summary;
         }
+
+
+        // =========================================================
+        // PHASE 24 — READ / UNREAD MESSAGE SYSTEM (customer-side)
+        // =========================================================
+
+        public async Task MarkMessageReadAsync(
+                int customerId,
+                int messageId)
+        {
+            var message = await _context.Messages
+                .Include(m => m.Conversation)
+                .FirstOrDefaultAsync(m =>
+                    m.Id == messageId &&
+                    m.Conversation.CustomerId == customerId);
+
+            if (message == null)
+            {
+                throw new Exception("Message not found.");
+            }
+
+            // Only the receiver may mark a message as read — keeps customer
+            // A from snooping on customer B's conversations.
+            if (message.ReceiverId != customerId)
+            {
+                throw new Exception(
+                    "You can only mark your own received messages as read.");
+            }
+
+            if (!message.IsRead)
+            {
+                message.IsRead = true;
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        public async Task<int>
+            GetUnreadMessageCountAsync(
+                int customerId)
+        {
+            return await _context.Messages
+                .Where(m =>
+                    m.ReceiverId == customerId &&
+                    !m.IsRead)
+                .CountAsync();
+        }
     }
 }

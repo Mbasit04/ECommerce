@@ -171,3 +171,57 @@ export const getSellerReviewById = async (reviewId) => {
   );
   return response.data;
 };
+
+
+// ============================================================
+// PHASE 24 — CONTACT SELLER (seller-side inbox + reply)
+// ============================================================
+
+// GET /api/Seller/messages — every thread where this seller is the recipient.
+export const getSellerMessages = async () => {
+  const response = await api.get("/Seller/messages");
+  return response.data;
+};
+
+// GET /api/Seller/messages/{conversationId} — full thread by conversation id.
+// Conversation id (not customer id) so multiple product threads with the
+// same customer don't collapse to the latest one.
+export const getSellerConversation = async (conversationId) => {
+  const response = await api.get(
+    `/Seller/messages/${conversationId}`
+  );
+  return response.data;
+};
+
+// POST /api/Seller/messages/reply — send a reply to a customer.
+export const replyToCustomer = async (
+  customerId,
+  productId,
+  messageText,
+) => {
+  const response = await api.post(
+    "/Seller/messages/reply",
+    {
+      customerId,
+      productId,
+      messageText,
+    }
+  );
+  return response.data;
+};
+
+// PUT /api/Seller/messages/{messageId}/read — mark a single message as read.
+export const markSellerMessageRead = async (messageId) => {
+  const response = await api.put(
+    `/Seller/messages/${messageId}/read`
+  );
+  return response.data;
+};
+
+// GET /api/Seller/messages/unread-count — used by navbar badge.
+export const getSellerUnreadCount = async () => {
+  const response = await api.get(
+    "/Seller/messages/unread-count"
+  );
+  return response.data;
+};

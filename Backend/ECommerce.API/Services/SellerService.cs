@@ -1844,5 +1844,213 @@ namespace ECommerce.API.Services
                 })
                 .FirstOrDefaultAsync();
         }
+
+
+        // =========================================================
+        // PHASE 24 — CONTACT SELLER (seller-side inbox + reply)
+        // =========================================================
+
+        // List of threads where this seller is the receiver. UnreadCount
+        // is computed per-thread so the inbox can show 🔴 badges.
+        public async Task<List<SellerMessageConversationDto>>
+            GetSellerConversationsAsync(
+                int sellerId)
+        {
+            var conversations = await _context.Conversations
+                .AsNoTracking()
+                .Where(x => x.SellerId == sellerId)
+                .Include(x => x.Customer)
+                .Include(x => x.Product)
+                .Include(x => x.Messages)
+                .OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
+                .ToListAsync();
+
+            return conversations
+                .Select(conversation =>
+                {
+                    var lastMessage = conversation.Messages
+                        .OrderByDescending(m => m.SentAt)
+                        .FirstOrDefault();
+
+                    var unread = conversation.Messages
+                        .Count(m =>
+                            m.ReceiverId == sellerId && !m.IsRead);
+
+                    return new SellerMessageConversationDto
+                    {
+                        ConversationId = conversation.Id,
+                        CustomerId = conversation.CustomerId,
+                        CustomerName = conversation.Customer.FullName,
+                        ProductId = conversation.ProductId,
+                        ProductName = conversation.Product?.Name,
+                        LastMessage = lastMessage?.MessageText,
+                        LastMessageAt = lastMessage?.SentAt,
+                        UnreadCount = unread
+                    };
+                })
+                .ToList();
+        }
+
+        // Seller-side counterpart of CustomerService.GetConversationMessagesAsync.
+        // Returns null if the thread doesn't belong to this seller (security).
+        // Now keyed by conversationId so a customer with multiple products in
+        // the same seller thread doesn't get collapsed into the latest one.
+        public async Task<SellerMessageDetailsDto?>
+            GetSellerConversationAsync(
+                int sellerId,
+                int conversationId)
+        {
+            var conversation = await _context.Conversations
+                .AsNoTracking()
+                .Include(x => x.Customer)
+                .Include(x => x.Seller)
+                .Include(x => x.Product)
+                .Include(x => x.Messages)
+                    .ThenInclude(m => m.Sender)
+                .FirstOrDefaultAsync(x =>
+                    x.Id == conversationId &&
+                    x.SellerId == sellerId);
+
+            if (conversation == null)
+            {
+                return null;
+            }
+
+            return new SellerMessageDetailsDto
+            {
+                ConversationId = conversation.Id,
+                CustomerId = conversation.CustomerId,
+                CustomerName = conversation.Customer.FullName,
+                SellerId = conversation.SellerId,
+                ProductId = conversation.ProductId,
+                ProductName = conversation.Product?.Name,
+                Messages = conversation.Messages
+                    .OrderBy(m => m.SentAt)
+                    .Select(m => new SellerMessageDto
+                    {
+                        MessageId = m.Id,
+                        SenderId = m.SenderId,
+                        SenderName = m.Sender?.FullName ?? string.Empty,
+                        ReceiverId = m.ReceiverId,
+                        Message = m.MessageText,
+                        IsRead = m.IsRead,
+                        SentAt = m.SentAt
+                    })
+                    .ToList()
+            };
+        }
+
+        public async Task<SellerMessageDto>
+            ReplyToCustomerAsync(
+                int sellerId,
+                SellerReplyDto dto)
+        {
+            var messageText = dto.MessageText?.Trim();
+
+            if (string.IsNullOrWhiteSpace(messageText))
+            {
+                throw new Exception("Message cannot be empty.");
+            }
+
+            var customerExists = await _context.Users
+                .AnyAsync(x => x.Id == dto.CustomerId);
+
+            if (!customerExists)
+            {
+                throw new Exception("Customer not found.");
+            }
+
+            // Look up an existing thread first so a customer who messaged
+            // multiple times doesn't end up with duplicate conversations.
+            var conversation = await _context.Conversations
+                .FirstOrDefaultAsync(x =>
+                    x.SellerId == sellerId &&
+                    x.CustomerId == dto.CustomerId &&
+                    x.ProductId == dto.ProductId);
+
+            if (conversation == null)
+            {
+                conversation = new Conversation
+                {
+                    SellerId = sellerId,
+                    CustomerId = dto.CustomerId,
+                    ProductId = dto.ProductId,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.Conversations.Add(conversation);
+                await _context.SaveChangesAsync();
+            }
+
+            var message = new Message
+            {
+                ConversationId = conversation.Id,
+                SenderId = sellerId,
+                ReceiverId = dto.CustomerId,
+                MessageText = messageText,
+                IsRead = false,
+                SentAt = DateTime.UtcNow
+            };
+
+            conversation.UpdatedAt = DateTime.UtcNow;
+
+            _context.Messages.Add(message);
+            await _context.SaveChangesAsync();
+
+            var sender = await _context.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == sellerId);
+
+            return new SellerMessageDto
+            {
+                MessageId = message.Id,
+                SenderId = message.SenderId,
+                SenderName = sender?.FullName ?? string.Empty,
+                ReceiverId = message.ReceiverId,
+                Message = message.MessageText,
+                IsRead = message.IsRead,
+                SentAt = message.SentAt
+            };
+        }
+
+        public async Task MarkSellerMessageReadAsync(
+                int sellerId,
+                int messageId)
+        {
+            var message = await _context.Messages
+                .Include(m => m.Conversation)
+                .FirstOrDefaultAsync(m =>
+                    m.Id == messageId &&
+                    m.Conversation.SellerId == sellerId);
+
+            if (message == null)
+            {
+                throw new Exception("Message not found.");
+            }
+
+            // Only the receiver can mark a message as read.
+            if (message.ReceiverId != sellerId)
+            {
+                throw new Exception(
+                    "You can only mark your own received messages as read.");
+            }
+
+            if (!message.IsRead)
+            {
+                message.IsRead = true;
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        public async Task<int>
+            GetSellerUnreadCountAsync(
+                int sellerId)
+        {
+            return await _context.Messages
+                .Where(m =>
+                    m.ReceiverId == sellerId &&
+                    !m.IsRead)
+                .CountAsync();
+        }
     }
 }

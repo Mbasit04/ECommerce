@@ -780,5 +780,145 @@ namespace ECommerce.API.Controllers
                 });
             }
         }
+
+
+        // =========================================================
+        // PHASE 24 — CONTACT SELLER (inbox + reply)
+        // =========================================================
+
+        [HttpGet("messages")]
+        public async Task<IActionResult>
+            GetConversations()
+        {
+            try
+            {
+                var sellerId = GetUserId();
+
+                var conversations = await _sellerService
+                    .GetSellerConversationsAsync(
+                        sellerId);
+
+                return Ok(conversations);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        [HttpGet("messages/{conversationId:int}")]
+        public async Task<IActionResult>
+            GetConversation(
+                int conversationId)
+        {
+            try
+            {
+                var sellerId = GetUserId();
+
+                var conversation = await _sellerService
+                    .GetSellerConversationAsync(
+                        sellerId,
+                        conversationId);
+
+                if (conversation == null)
+                {
+                    return NotFound(new
+                    {
+                        message = "Conversation not found."
+                    });
+                }
+
+                return Ok(conversation);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        [HttpPost("messages/reply")]
+        public async Task<IActionResult>
+            ReplyToCustomer(
+                SellerReplyDto dto)
+        {
+            try
+            {
+                var sellerId = GetUserId();
+
+                var message = await _sellerService
+                    .ReplyToCustomerAsync(
+                        sellerId,
+                        dto);
+
+                return Ok(message);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        [HttpPut("messages/{messageId:int}/read")]
+        public async Task<IActionResult>
+            MarkMessageRead(
+                int messageId)
+        {
+            try
+            {
+                var sellerId = GetUserId();
+
+                await _sellerService
+                    .MarkSellerMessageReadAsync(
+                        sellerId,
+                        messageId);
+
+                return Ok(new
+                {
+                    message = "Message marked as read."
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        [HttpGet("messages/unread-count")]
+        public async Task<IActionResult>
+            GetUnreadCount()
+        {
+            try
+            {
+                var sellerId = GetUserId();
+
+                var count = await _sellerService
+                    .GetSellerUnreadCountAsync(
+                        sellerId);
+
+                return Ok(new
+                {
+                    unreadCount = count
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
     }
 }

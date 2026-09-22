@@ -33,7 +33,9 @@ import PaymentSuccess from '../pages/customer/PaymentSuccess';
 
 import ShippingManagement from '../pages/seller/ShippingManagement';
 import SellerReviews from '../pages/seller/SellerReviews';
+import SellerMessages from '../pages/seller/SellerMessages';
 import AdminReviews from '../pages/admin/AdminReviews';
+import SellerMessagesErrorBoundary from '../components/SellerMessagesErrorBoundary';
 
 const AppRoutes = () => {
   return (
@@ -82,6 +84,7 @@ const AppRoutes = () => {
           <Route path="/seller/deals/edit/:id" element={<EditDeal />} />
           <Route path="/seller/orders" element={<ShippingManagement />} />
           <Route path="/seller/reviews" element={<SellerReviews />} />
+          <Route path="/seller/messages" element={<SellerMessagesErrorBoundary><SellerMessages /></SellerMessagesErrorBoundary>} />
         </Route>
       </Route>
     </Routes>

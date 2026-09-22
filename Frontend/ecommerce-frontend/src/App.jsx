@@ -57,6 +57,9 @@ import MyDeals from "./pages/seller/MyDeals";
 import SellerAddDeal from "./pages/seller/AddDeal";
 import SellerEditDeal from "./pages/seller/EditDeal";
 import ShippingManagement from "./pages/seller/ShippingManagement";
+import SellerReviews from "./pages/seller/SellerReviews";
+import SellerMessages from "./pages/seller/SellerMessages";
+import SellerMessagesErrorBoundary from "./components/SellerMessagesErrorBoundary";
 
 import CustomerMessages from "./pages/customer/CustomerMessages";
 import Conversation from "./pages/customer/Conversation";
@@ -175,6 +178,17 @@ function App() {
                 <Route path="deals/add" element={<SellerAddDeal />} />
 
                 <Route path="orders" element={<ShippingManagement />} />
+
+                <Route path="reviews" element={<SellerReviews />} />
+
+                <Route
+                  path="messages"
+                  element={
+                    <SellerMessagesErrorBoundary>
+                      <SellerMessages />
+                    </SellerMessagesErrorBoundary>
+                  }
+                />
               </Route>
             </Route>
 

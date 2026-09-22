@@ -107,6 +107,17 @@ namespace ECommerce.API.Interfaces
         GetProductRatingSummaryAsync(
         int productId);
 
+        // =========================================================
+        // PHASE 24 — READ / UNREAD MESSAGE SYSTEM (customer-side)
+        // =========================================================
+
+        Task MarkMessageReadAsync(
+            int customerId,
+            int messageId);
+
+        Task<int> GetUnreadMessageCountAsync(
+            int customerId);
+
         Task<ConversationDetailsResponseDto> StartConversationAsync(
         int customerId,
         StartConversationDto dto);

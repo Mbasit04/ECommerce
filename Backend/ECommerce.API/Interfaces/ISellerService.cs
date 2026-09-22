@@ -153,5 +153,31 @@ namespace ECommerce.API.Interfaces
             GetSellerReviewByIdAsync(
                 int reviewId,
                 int sellerId);
+
+        // =========================================================
+        // PHASE 24 — CONTACT SELLER (seller-side inbox + reply)
+        // =========================================================
+
+        Task<List<SellerMessageConversationDto>>
+            GetSellerConversationsAsync(
+                int sellerId);
+
+        Task<SellerMessageDetailsDto?>
+            GetSellerConversationAsync(
+                int sellerId,
+                int customerId);
+
+        Task<SellerMessageDto>
+            ReplyToCustomerAsync(
+                int sellerId,
+                SellerReplyDto dto);
+
+        Task MarkSellerMessageReadAsync(
+                int sellerId,
+                int messageId);
+
+        Task<int>
+            GetSellerUnreadCountAsync(
+                int sellerId);
     }
 }
