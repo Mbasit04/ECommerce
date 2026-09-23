@@ -381,3 +381,62 @@ export const deleteAdminReview = async (reviewId) => {
 
   return response.data;
 };
+
+// =========================
+// ROLE PERMISSIONS (Phase 26)
+// =========================
+
+// GET /api/Admin/roles — every role + user count + description.
+export const getAdminRoles = async () => {
+  const response = await api.get("/Admin/roles");
+  return response.data;
+};
+
+// GET /api/Admin/roles/{roleId}/users — users holding a specific role.
+export const getAdminUsersInRole = async (roleId) => {
+  const response = await api.get(
+    `/Admin/roles/${roleId}/users`
+  );
+  return response.data;
+};
+
+// GET /api/Admin/role-users — every user with their active role.
+export const getAdminRoleUsers = async () => {
+  const response = await api.get("/Admin/role-users");
+  return response.data;
+};
+
+// PUT /api/Admin/users/{userId}/role — replace a user's role.
+export const updateAdminUserRole = async (userId, roleId) => {
+  const response = await api.put(
+    `/Admin/users/${userId}/role`,
+    { roleId }
+  );
+
+  return response.data;
+};
+
+// =========================
+// ROLE PERMISSIONS MATRIX (editable)
+// =========================
+
+// GET /api/Admin/permissions — flat list of every (role, module) cell.
+export const getAdminPermissions = async () => {
+  const response = await api.get("/Admin/permissions");
+  return response.data;
+};
+
+// PUT /api/Admin/permissions/{roleId}/{moduleKey} — change one cell.
+// `capability` is binary: "allow" when checked, "deny" when unchecked.
+export const updateAdminPermission = async (
+  roleId,
+  moduleKey,
+  capability,
+) => {
+  const response = await api.put(
+    `/Admin/permissions/${roleId}/${encodeURIComponent(moduleKey)}`,
+    { capability },
+  );
+
+  return response.data;
+};

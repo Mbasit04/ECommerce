@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 
 import { AuthProvider } from "./context/AuthContext";
@@ -45,6 +45,9 @@ import AddDeal from "./pages/admin/AddDeal";
 import EditDeal from "./pages/admin/EditDeal";
 import AdminShipping from "./pages/admin/AdminShipping";
 import AdminRefunds from "./pages/admin/AdminRefunds";
+import AdminReviews from "./pages/admin/AdminReviews";
+import AdminRolePermissions from "./pages/admin/AdminRolePermissions";
+import PageErrorBoundary from "./components/PageErrorBoundary";
 
 import SellerDashboard from "./pages/seller/SellerDashboard";
 import SellerProfile from "./pages/seller/SellerProfile";
@@ -133,6 +136,16 @@ function App() {
                 <Route path="shipping" element={<AdminShipping />} />
 
                 <Route path="refunds" element={<AdminRefunds />} />
+
+                <Route path="reviews" element={<AdminReviews />} />
+                <Route
+                  path="roles"
+                  element={
+                    <PageErrorBoundary label="role permissions">
+                      <AdminRolePermissions />
+                    </PageErrorBoundary>
+                  }
+                />
               </Route>
             </Route>
 
@@ -212,6 +225,7 @@ function App() {
               </Route>
             </Route>
           </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
 
         <ToastContainer position="top-right" autoClose={3000} />

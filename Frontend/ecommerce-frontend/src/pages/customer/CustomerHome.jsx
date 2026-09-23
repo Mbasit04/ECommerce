@@ -5,16 +5,20 @@ import {
   getCustomerCategories,
 } from "../../services/productService";
 import ProductCard from "../../components/ProductCard";
+import useFadeInScroll from "../../hooks/useFadeInScroll";
 
+// Curated fallback category list. We merge this with the dynamic API
+// response so the page always has something to render even before the
+// network call resolves.
 const HERO_CATEGORIES = [
-  { id: "electronics", name: "Electronics", emoji: "💻", color: "#e0f2fe" },
-  { id: "fashion", name: "Fashion", emoji: "👗", color: "#fce7f3" },
-  { id: "home", name: "Home & Living", emoji: "🏠", color: "#fef3c7" },
-  { id: "beauty", name: "Beauty", emoji: "💄", color: "#fae8ff" },
-  { id: "sports", name: "Sports", emoji: "⚽", color: "#dcfce7" },
-  { id: "books", name: "Books", emoji: "📚", color: "#fee2e2" },
-  { id: "toys", name: "Toys", emoji: "🧸", color: "#fed7aa" },
-  { id: "grocery", name: "Grocery", emoji: "🛒", color: "#ccfbf1" },
+  { slug: "electronics", name: "Electronics", emoji: "💻", accent: "#38bdf8" },
+  { slug: "fashion", name: "Fashion", emoji: "👗", accent: "#f472b6" },
+  { slug: "home", name: "Home & Living", emoji: "🏠", accent: "#fbbf24" },
+  { slug: "beauty", name: "Beauty", emoji: "💄", accent: "#c084fc" },
+  { slug: "sports", name: "Sports", emoji: "⚽", accent: "#34d399" },
+  { slug: "books", name: "Books", emoji: "📚", accent: "#fb7185" },
+  { slug: "toys", name: "Toys", emoji: "🧸", accent: "#fb923c" },
+  { slug: "grocery", name: "Grocery", emoji: "🛒", accent: "#2dd4bf" },
 ];
 
 const PROMO_BADGES = [
@@ -24,12 +28,57 @@ const PROMO_BADGES = [
   { icon: "💬", label: "24/7 Support", sub: "Real humans, real help" },
 ];
 
+// Skeleton row used while the API call is in flight. Renders 4 placeholder
+// cards so the layout doesn't shift when the real data arrives.
+const ProductSkeletonRow = ({ count = 4 }) => (
+  <div className="row g-4">
+    {Array.from({ length: count }).map((_, idx) => (
+      <div className="col-sm-6 col-lg-3" key={idx}>
+        <div className="skeleton-card">
+          <div className="skeleton skeleton-image" />
+          <div className="skeleton skeleton-line" />
+          <div className="skeleton skeleton-line short" />
+          <div className="skeleton skeleton-line" style={{ width: "40%" }} />
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+// Category-tile skeleton — 8 placeholder tiles in the same grid shape.
+const CategorySkeletonRow = ({ count = 8 }) => (
+  <div className="row g-3">
+    {Array.from({ length: count }).map((_, idx) => (
+      <div className="col-6 col-md-4 col-lg-3" key={idx}>
+        <div
+          className="skeleton"
+          style={{ height: 72, borderRadius: "var(--radius-md)" }}
+        />
+      </div>
+    ))}
+  </div>
+);
+
 const CustomerHome = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [heroSearch, setHeroSearch] = useState("");
+  const [theme, setTheme] = useState(() => {
+    // Persisted theme preference (defaults to light).
+    if (typeof window === "undefined") return "light";
+    return localStorage.getItem("home-theme") || "light";
+  });
   const navigate = useNavigate();
+
+  // Wire the IntersectionObserver that powers the .fade-in animation.
+  useFadeInScroll();
+
+  // Apply theme to <html data-theme="..."> so the CSS variables resolve.
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("home-theme", theme);
+  }, [theme]);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,20 +124,37 @@ const CustomerHome = () => {
       products
         .filter((p) => p.hasActiveDeal || p.discountPercentage > 0)
         .slice(0, 4),
-    [products]
+    [products],
   );
 
-  // Merge dynamic categories from API with the static curated list so we
-  // always have a reasonable tile set, even before the API returns.
+  // Try to match the static tile to a real API category by name (the slug
+  // and the API id may differ, but names line up). When matched, we use
+  // the API's numeric id in the link so /products?category=... actually
+  // filters. Falls back to the static tile's id (slug) if no match.
   const categoryTiles = useMemo(() => {
     if (!categories.length) return HERO_CATEGORIES;
+
+    const byName = new Map(
+      categories.map((c) => [
+        String(c.name ?? c.Name ?? "").trim().toLowerCase(),
+        c,
+      ]),
+    );
+
     return HERO_CATEGORIES.map((tile) => {
-      const match = categories.find(
-        (c) =>
-          String(c.id ?? c.Id).toLowerCase() ===
-          String(tile.id).toLowerCase()
-      );
-      return match ? { ...tile, id: match.id, name: match.name } : tile;
+      const apiCategory =
+        byName.get(tile.name.trim().toLowerCase()) ||
+        byName.get(tile.slug);
+
+      if (apiCategory) {
+        return {
+          ...tile,
+          id: apiCategory.id ?? apiCategory.Id,
+          name: apiCategory.name ?? apiCategory.Name ?? tile.name,
+        };
+      }
+
+      return { ...tile, id: tile.slug };
     });
   }, [categories]);
 
@@ -98,10 +164,14 @@ const CustomerHome = () => {
     navigate(`/products${term ? `?search=${encodeURIComponent(term)}` : ""}`);
   };
 
+  const toggleTheme = () => {
+    setTheme((current) => (current === "dark" ? "light" : "dark"));
+  };
+
   return (
     <div className="home-page">
       {/* ============== HERO ============== */}
-      <section className="hero-section">
+      <section className="hero-section fade-in">
         <div className="hero-bg" aria-hidden="true">
           <span className="blob blob-1" />
           <span className="blob blob-2" />
@@ -146,26 +216,35 @@ const CustomerHome = () => {
                   <strong>4.8★</strong> from 2,000+ happy shoppers
                 </span>
               </div>
+
+              <button
+                type="button"
+                className="btn btn-outline-light btn-sm mt-3"
+                onClick={toggleTheme}
+                aria-label="Toggle theme"
+              >
+                {theme === "dark" ? "☀️ Light mode" : "🌙 Dark mode"}
+              </button>
             </div>
 
             <div className="col-lg-5 d-none d-lg-block">
               <div className="hero-card-stack">
                 <div className="hero-float-card hero-float-card-1">
-                  <div className="float-icon" style={{ background: "#dcfce7" }}>🛍️</div>
+                  <div className="float-icon" style={{ background: "rgba(56, 189, 248, 0.2)" }}>🛍️</div>
                   <div>
                     <div className="float-title">Verified sellers</div>
                     <div className="float-sub">Every shop, vetted.</div>
                   </div>
                 </div>
                 <div className="hero-float-card hero-float-card-2">
-                  <div className="float-icon" style={{ background: "#fef3c7" }}>🏷️</div>
+                  <div className="float-icon" style={{ background: "rgba(124, 58, 237, 0.25)" }}>🏷️</div>
                   <div>
                     <div className="float-title">Hot deals</div>
                     <div className="float-sub">Up to 60% off daily.</div>
                   </div>
                 </div>
                 <div className="hero-float-card hero-float-card-3">
-                  <div className="float-icon" style={{ background: "#dbeafe" }}>🚚</div>
+                  <div className="float-icon" style={{ background: "rgba(99, 102, 241, 0.25)" }}>🚚</div>
                   <div>
                     <div className="float-title">Free shipping</div>
                     <div className="float-sub">On orders over Rs. 2,000.</div>
@@ -178,7 +257,7 @@ const CustomerHome = () => {
       </section>
 
       {/* ============== PROMO BADGES ============== */}
-      <section className="container promo-strip">
+      <section className="container promo-strip fade-in">
         <div className="row g-3">
           {PROMO_BADGES.map((badge) => (
             <div className="col-6 col-md-3" key={badge.label}>
@@ -195,36 +274,44 @@ const CustomerHome = () => {
       </section>
 
       {/* ============== CATEGORIES ============== */}
-      <section className="container category-section">
+      <section className="container category-section fade-in">
         <div className="section-head">
           <div>
             <h2 className="section-title">Shop by category</h2>
-            <p className="section-subtitle">Pick what you love — we'll handle the rest.</p>
+            <p className="section-subtitle">
+              Pick what you love — we'll handle the rest.
+            </p>
           </div>
           <Link to="/products" className="section-link">
             View all →
           </Link>
         </div>
 
-        <div className="row g-3">
-          {categoryTiles.map((cat) => (
-            <div className="col-6 col-md-4 col-lg-3" key={cat.id}>
-              <Link
-                to={`/products?category=${cat.id}`}
-                className="category-tile"
-                style={{ background: cat.color }}
-              >
-                <span className="category-emoji">{cat.emoji}</span>
-                <span className="category-name">{cat.name}</span>
-                <span className="category-arrow" aria-hidden="true">→</span>
-              </Link>
-            </div>
-          ))}
-        </div>
+        {loading ? (
+          <CategorySkeletonRow count={HERO_CATEGORIES.length} />
+        ) : (
+          <div className="row g-3">
+            {categoryTiles.map((cat) => (
+              <div className="col-6 col-md-4 col-lg-3" key={cat.id ?? cat.slug}>
+                <Link
+                  to={`/products?category=${cat.id}`}
+                  className="category-tile"
+                  style={{
+                    "--tile-accent": cat.accent,
+                  }}
+                >
+                  <span className="category-emoji">{cat.emoji}</span>
+                  <span className="category-name">{cat.name}</span>
+                  <span className="category-arrow" aria-hidden="true">→</span>
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* ============== FEATURED PRODUCTS ============== */}
-      <section className="container featured-section">
+      <section className="container featured-section fade-in">
         <div className="section-head">
           <div>
             <h2 className="section-title">Featured products</h2>
@@ -238,11 +325,7 @@ const CustomerHome = () => {
         </div>
 
         {loading ? (
-          <div className="text-center py-5">
-            <div className="spinner-border text-primary" role="status">
-              <span className="visually-hidden">Loading products…</span>
-            </div>
-          </div>
+          <ProductSkeletonRow count={8} />
         ) : featured.length === 0 ? (
           <div className="empty-card">
             <div className="display-4 mb-2">🛍️</div>
@@ -263,8 +346,8 @@ const CustomerHome = () => {
       </section>
 
       {/* ============== DEALS BANNER ============== */}
-      {dealProducts.length > 0 && (
-        <section className="container deals-section">
+      {!loading && dealProducts.length > 0 && (
+        <section className="container deals-section fade-in">
           <div className="deals-card">
             <div className="row align-items-center g-4">
               <div className="col-md-5">
@@ -293,12 +376,12 @@ const CustomerHome = () => {
       )}
 
       {/* ============== CTA ============== */}
-      <section className="container cta-section">
+      <section className="container cta-section fade-in">
         <div className="cta-card">
           <div>
             <h3 className="cta-title">Ready to start shopping?</h3>
             <p className="cta-subtitle mb-0">
-              Join thousands of happy customers who trust ShopSphere for their
+              Join thousands of happy customers who trust ShopSpot for their
               everyday essentials.
             </p>
           </div>

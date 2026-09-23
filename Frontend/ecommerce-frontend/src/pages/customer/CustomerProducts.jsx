@@ -108,10 +108,40 @@ const CustomerProducts = () => {
   };
   const filtered = useMemo(() => {
     const term = search.toLowerCase().trim(), min = minPrice === "" ? null : Number(minPrice), max = maxPrice === "" ? null : Number(maxPrice);
+
+    // Look up the category name so we can fall back to a name-based
+    // comparison — the home-page category tile may link to /products
+    // with a slug ("fashion") instead of a numeric id when the API
+    // hasn't returned yet, and we still want the filter to work.
+    const activeCategory = category
+      ? categories.find(
+          (item) =>
+            String(value(item, "id")) === String(category) ||
+            String(value(item, "name", ""))
+              .trim()
+              .toLowerCase() ===
+              String(category).trim().toLowerCase(),
+        )
+      : null;
+    const activeCategoryName = activeCategory
+      ? String(value(activeCategory, "name", "")).trim().toLowerCase()
+      : null;
+
     const sorted = [...products.filter((product) => {
       const productStock = Number(value(product, "stock", 0));
       const matchesSearch = !term || [value(product, "name"), value(product, "description")].join(" ").toLowerCase().includes(term);
-      return (!category || Number(value(product, "categoryId", 0)) === Number(category)) && matchesSearch &&
+      const productCategoryId = Number(value(product, "categoryId", 0));
+      const productCategoryName = String(
+        value(product, "categoryName") ?? "",
+      )
+        .trim()
+        .toLowerCase();
+      const matchesCategory =
+        !category ||
+        productCategoryId === Number(category) ||
+        (activeCategoryName &&
+          productCategoryName === activeCategoryName);
+      return matchesCategory && matchesSearch &&
         (min === null || effectivePrice(product) >= min) && (max === null || effectivePrice(product) <= max) &&
         (stock === "all" || (stock === "in" ? productStock > LOW_STOCK_LIMIT : stock === "low" ? productStock > 0 && productStock <= LOW_STOCK_LIMIT : productStock <= 0)) &&
         (seller === "all" || String(value(product, "sellerId")) === seller) &&
@@ -126,7 +156,7 @@ const CustomerProducts = () => {
     else if (sortBy === "stockLow") sorted.sort((a, b) => Number(value(a, "stock", 0)) - Number(value(b, "stock", 0)));
     else if (sortBy === "stockHigh") sorted.sort((a, b) => Number(value(b, "stock", 0)) - Number(value(a, "stock", 0)));
     return sorted;
-  }, [products, search, category, minPrice, maxPrice, stock, seller, deal, sortBy]);
+  }, [products, search, category, minPrice, maxPrice, stock, seller, deal, sortBy, categories]);
   const dealCount = useMemo(() => products.filter(hasActiveDeal).length, [products]);
   const hasFilters = Boolean(search || category || minPrice || maxPrice || stock !== "all" || seller !== "all" || deal !== "all" || sortBy !== "default");
 

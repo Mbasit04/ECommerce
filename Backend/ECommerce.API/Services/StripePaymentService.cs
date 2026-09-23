@@ -335,6 +335,12 @@ namespace ECommerce.API.Services
                             "A product in your cart is no longer available.");
                     }
 
+                    if (cartItem.Quantity <= 0)
+                    {
+                        throw new Exception(
+                            $"Quantity for {product.Name} must be greater than zero.");
+                    }
+
                     if (product.Stock < cartItem.Quantity)
                     {
                         throw new Exception(

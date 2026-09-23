@@ -78,11 +78,17 @@ const SellerMessages = () => {
           (message) => !message.isRead && message.receiverId !== undefined,
         );
 
-        await Promise.all(
-          unread.map((message) =>
-            markSellerMessageRead(message.messageId).catch(() => null),
-          ),
-        );
+        if (unread.length > 0) {
+          await Promise.all(
+            unread.map((message) =>
+              markSellerMessageRead(message.messageId).catch(() => null),
+            ),
+          );
+
+          // Tell the seller layout to refresh its sidebar badge immediately.
+          // The 30s polling fallback will pick this up too, but instant is nicer.
+          window.dispatchEvent(new Event("seller-unread-changed"));
+        }
 
         // Refresh sidebar so the unread badge updates without a manual reload.
         loadConversations();

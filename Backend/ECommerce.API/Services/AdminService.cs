@@ -855,5 +855,255 @@ namespace ECommerce.API.Services
             await _context.SaveChangesAsync();
             return true;
         }
+
+
+        // =========================================================
+        // PHASE 26 — ROLE PERMISSIONS CONSOLE
+        // =========================================================
+
+        // Hard-coded descriptions for the seeded roles. Keeping these in the
+        // backend (rather than the DB) avoids a schema change and keeps the
+        // permission vocabulary stable.
+        private static string DescribeRole(string name) => name switch
+        {
+            "Admin"    => "Full platform access — manages sellers, customers, products, orders, refunds and reviews.",
+            "Seller"   => "Manages their own products, stock, deals, shipping, reviews and customer messages.",
+            "Customer" => "Browses products, places orders, writes reviews and contacts sellers.",
+            _          => "Custom role.",
+        };
+
+        public async Task<List<RoleSummaryDto>> GetRolesAsync()
+        {
+            // Pull every role with the count of users holding it. Done in a
+            // single query (GroupJoin) so we don't N+1 over UserRoles.
+            var roles = await _context.Roles
+                .AsNoTracking()
+                .OrderBy(x => x.Name)
+                .Select(role => new RoleSummaryDto
+                {
+                    Id = role.Id,
+                    Name = role.Name,
+                    Description = DescribeRole(role.Name),
+                    UserCount = role.UserRoles.Count
+                })
+                .ToListAsync();
+
+            return roles;
+        }
+
+        public async Task<List<RoleUserDto>> GetUsersInRoleAsync(int roleId)
+        {
+            return await _context.UserRoles
+                .AsNoTracking()
+                .Where(ur => ur.RoleId == roleId)
+                .Include(ur => ur.User)
+                .OrderBy(ur => ur.User.FullName)
+                .Select(ur => new RoleUserDto
+                {
+                    UserId = ur.UserId,
+                    FullName = ur.User.FullName,
+                    Email = ur.User.Email,
+                    IsActive = ur.User.IsActive,
+                    CreatedAt = ur.User.CreatedAt
+                })
+                .ToListAsync();
+        }
+
+        // Returns every user with their current role so the admin table can
+        // show a single combined view (rather than picking one role).
+        public async Task<List<RoleUserDto>> GetAllUsersWithRolesAsync()
+        {
+            // Use the latest UserRole assignment per user when a user has more
+            // than one (defensive — the schema is a join table, so a user
+            // could in theory be linked to multiple roles).
+            var userRoles = await _context.UserRoles
+                .AsNoTracking()
+                .Include(ur => ur.User)
+                .ToListAsync();
+
+            return userRoles
+                .GroupBy(ur => ur.UserId)
+                .Select(group =>
+                {
+                    var first = group.OrderBy(ur => ur.RoleId).First();
+                    return new RoleUserDto
+                    {
+                        UserId = first.UserId,
+                        FullName = first.User.FullName,
+                        Email = first.User.Email,
+                        IsActive = first.User.IsActive,
+                        CreatedAt = first.User.CreatedAt
+                    };
+                })
+                .OrderBy(x => x.FullName)
+                .ToList();
+        }
+
+        public async Task<bool> UpdateUserRoleAsync(
+                int adminUserId,
+                int targetUserId,
+                int newRoleId)
+        {
+            if (targetUserId <= 0)
+            {
+                throw new Exception("Invalid user.");
+            }
+
+            if (newRoleId <= 0)
+            {
+                throw new Exception("Invalid role.");
+            }
+
+            // Don't let admins demote themselves — it would lock them out
+            // of the console the next time they try to log in.
+            if (targetUserId == adminUserId)
+            {
+                var selfRole = await _context.UserRoles
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(ur =>
+                        ur.UserId == adminUserId &&
+                        ur.RoleId == newRoleId);
+
+                if (selfRole == null)
+                {
+                    throw new Exception(
+                        "You cannot change your own role from the admin console.");
+                }
+            }
+
+            var newRoleExists = await _context.Roles
+                .AnyAsync(r => r.Id == newRoleId);
+
+            if (!newRoleExists)
+            {
+                throw new Exception("Selected role does not exist.");
+            }
+
+            var existingRoles = await _context.UserRoles
+                .Where(ur => ur.UserId == targetUserId)
+                .ToListAsync();
+
+            if (existingRoles.Count == 0)
+            {
+                _context.UserRoles.Add(new UserRole
+                {
+                    UserId = targetUserId,
+                    RoleId = newRoleId
+                });
+            }
+            else
+            {
+                // Replace existing assignments with the new role so the user
+                // doesn't end up holding both old + new at the same time.
+                _context.UserRoles.RemoveRange(existingRoles);
+
+                _context.UserRoles.Add(new UserRole
+                {
+                    UserId = targetUserId,
+                    RoleId = newRoleId
+                });
+            }
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+
+        // =========================================================
+        // PHASE 26 — ROLE PERMISSION MATRIX (admin editable)
+        // =========================================================
+
+        // The allow-list — anything outside this is rejected so the DB
+        // stays consistent regardless of what the UI sends.
+        private static readonly HashSet<string> AllowedCapabilities =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                "allow", "deny", "own", "read", "write"
+            };
+
+        public async Task<List<RolePermissionDto>>
+            GetAllPermissionsAsync()
+        {
+            return await _context.RolePermissions
+                .AsNoTracking()
+                .Include(x => x.Role)
+                .OrderBy(x => x.RoleId)
+                .ThenBy(x => x.ModuleKey)
+                .Select(x => new RolePermissionDto
+                {
+                    Id = x.Id,
+                    RoleId = x.RoleId,
+                    RoleName = x.Role != null
+                        ? x.Role.Name
+                        : string.Empty,
+                    ModuleKey = x.ModuleKey,
+                    Capability = x.Capability,
+                    UpdatedAt = x.UpdatedAt
+                })
+                .ToListAsync();
+        }
+
+        public async Task<RolePermissionDto?>
+            UpdatePermissionAsync(
+                int roleId,
+                string moduleKey,
+                string capability)
+        {
+            if (string.IsNullOrWhiteSpace(moduleKey))
+            {
+                throw new Exception("Module key is required.");
+            }
+
+            if (!AllowedCapabilities.Contains(capability))
+            {
+                throw new Exception(
+                    "Capability must be one of: allow, deny, own, read, write.");
+            }
+
+            var roleExists = await _context.Roles
+                .AnyAsync(r => r.Id == roleId);
+
+            if (!roleExists)
+            {
+                throw new Exception("Role not found.");
+            }
+
+            var entry = await _context.RolePermissions
+                .Include(x => x.Role)
+                .FirstOrDefaultAsync(x =>
+                    x.RoleId == roleId &&
+                    x.ModuleKey == moduleKey);
+
+            if (entry == null)
+            {
+                // Lazy-create on first edit so admins can add a brand-new
+                // module/role combination without a migration.
+                entry = new RolePermission
+                {
+                    RoleId = roleId,
+                    ModuleKey = moduleKey.ToLowerInvariant(),
+                    Capability = capability.ToLowerInvariant()
+                };
+
+                _context.RolePermissions.Add(entry);
+            }
+            else
+            {
+                entry.Capability = capability.ToLowerInvariant();
+                entry.UpdatedAt = DateTime.UtcNow;
+            }
+
+            await _context.SaveChangesAsync();
+
+            return new RolePermissionDto
+            {
+                Id = entry.Id,
+                RoleId = entry.RoleId,
+                RoleName = entry.Role?.Name ?? string.Empty,
+                ModuleKey = entry.ModuleKey,
+                Capability = entry.Capability,
+                UpdatedAt = entry.UpdatedAt
+            };
+        }
     }
 }

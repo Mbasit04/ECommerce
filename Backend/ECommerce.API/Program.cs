@@ -2,6 +2,7 @@ using ECommerce.API.Interfaces;
 using ECommerce.API.Services;
 using ECommerce.API.Data;
 using ECommerce.API.Configuration;
+using ECommerce.API.Middleware;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -149,6 +150,10 @@ var app = builder.Build();
 // ==========================================
 // Middleware
 // ==========================================
+
+// Global exception handler — catches anything downstream and turns
+// concurrency conflicts + unhandled errors into predictable JSON.
+app.UseMiddleware<GlobalExceptionMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {

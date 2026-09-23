@@ -15,6 +15,9 @@ const SellerLayout = () => {
   };
 
   // Poll the seller-side unread count so the sidebar badge stays in sync.
+  // Also listens for a window "unread-changed" event so opening a thread
+  // and marking its messages read updates the badge instantly rather than
+  // waiting for the next 30s poll tick.
   useEffect(() => {
     let cancelled = false;
     let timer;
@@ -41,9 +44,16 @@ const SellerLayout = () => {
     refresh();
     timer = setInterval(refresh, 30000);
 
+    const onUnreadChanged = () => refresh();
+    window.addEventListener("seller-unread-changed", onUnreadChanged);
+
     return () => {
       cancelled = true;
       if (timer) clearInterval(timer);
+      window.removeEventListener(
+        "seller-unread-changed",
+        onUnreadChanged,
+      );
     };
   }, []);
 

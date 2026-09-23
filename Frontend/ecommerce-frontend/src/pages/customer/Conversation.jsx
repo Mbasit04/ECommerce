@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   getConversationMessages,
+  markCustomerMessageRead,
   sendMessage,
 } from "../../services/messageService";
 
@@ -18,6 +19,28 @@ const Conversation = () => {
     try {
       const data = await getConversationMessages(id);
       setConversation(data);
+
+      // Mark every unread message that wasn't sent by the customer as
+      // read, then ask the customer layout to refresh its badge so it
+      // drops from "1" → "0" instantly instead of waiting for the
+      // 30s polling tick.
+      const incoming = (data?.messages || []).filter(
+        (entry) =>
+          !entry.isRead &&
+          // Only messages where the customer is the receiver.
+          entry.receiverId !== undefined &&
+          entry.senderId !== undefined,
+      );
+
+      if (incoming.length > 0) {
+        await Promise.all(
+          incoming.map((entry) =>
+            markCustomerMessageRead(entry.messageId).catch(() => null),
+          ),
+        );
+
+        window.dispatchEvent(new Event("customer-unread-changed"));
+      }
     } catch (error) {
       console.error(error);
     }

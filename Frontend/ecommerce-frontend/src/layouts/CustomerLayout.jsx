@@ -30,6 +30,7 @@ const CustomerLayout = () => {
     }
 
     let cancelled = false;
+    let timer;
 
     const refreshUnread = async () => {
       try {
@@ -43,11 +44,21 @@ const CustomerLayout = () => {
     };
 
     refreshUnread();
-    const timer = setInterval(refreshUnread, 30000);
+    timer = setInterval(refreshUnread, 30000);
+
+    // Listen for instant updates from the messages page (when a thread
+    // is opened and its messages marked read, the layout badge should
+    // drop without waiting for the next poll).
+    const onUnreadChanged = () => refreshUnread();
+    window.addEventListener("customer-unread-changed", onUnreadChanged);
 
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      if (timer) clearInterval(timer);
+      window.removeEventListener(
+        "customer-unread-changed",
+        onUnreadChanged,
+      );
     };
   }, [isCustomer, location.pathname]);
 
@@ -297,7 +308,7 @@ const CustomerLayout = () => {
           <div className="row g-4">
             <div className="col-md-4">
               <h5 className="footer-title">
-                <span className="brand-icon">🛒</span> ShopSphere
+                <span className="brand-icon">🛒</span> ShopSpot
               </h5>
               <p className="text-muted small mb-0">
                 Your trusted online marketplace. Discover great products from
@@ -342,7 +353,7 @@ const CustomerLayout = () => {
           </div>
           <hr className="footer-divider" />
           <div className="d-flex justify-content-between flex-wrap small text-muted">
-            <span>© {new Date().getFullYear()} ShopSphere. All rights reserved.</span>
+            <span>© {new Date().getFullYear()} ShopSpot. All rights reserved.</span>
             <span>Built with ❤ for online shoppers.</span>
           </div>
         </div>

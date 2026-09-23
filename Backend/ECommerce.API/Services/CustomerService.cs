@@ -717,6 +717,12 @@ namespace ECommerce.API.Services
                         throw new Exception($"{product.Name} is no longer available.");
                     }
 
+                    if (cartItem.Quantity <= 0)
+                    {
+                        throw new Exception(
+                            $"Quantity for {product.Name} must be greater than zero.");
+                    }
+
                     if (product.Stock <= 0)
                     {
                         throw new Exception($"{product.Name} is out of stock.");

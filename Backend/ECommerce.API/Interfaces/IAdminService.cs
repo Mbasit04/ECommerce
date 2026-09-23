@@ -55,10 +55,33 @@ namespace ECommerce.API.Interfaces
         // REVIEW MANAGEMENT (Phase 23 — Feedback & Reviews)
         // =========================================================
 
-        Task<List<AdminReviewDto>> GetAllReviewsAsync();
+Task<List<AdminReviewDto>> GetAllReviewsAsync();
 
         Task<AdminReviewDto?> GetReviewByIdAsync(int reviewId);
 
         Task<bool> DeleteReviewAsync(int reviewId);
+
+        // =========================================================
+        // ROLE PERMISSIONS (admin role-management console)
+        // =========================================================
+
+        Task<List<RoleSummaryDto>> GetRolesAsync();
+
+        Task<List<RoleUserDto>> GetUsersInRoleAsync(int roleId);
+
+        Task<List<RoleUserDto>> GetAllUsersWithRolesAsync();
+
+        Task<bool> UpdateUserRoleAsync(int adminUserId, int targetUserId, int newRoleId);
+
+        // =========================================================
+        // ROLE PERMISSION MATRIX (admin editable)
+        // =========================================================
+
+        Task<List<RolePermissionDto>> GetAllPermissionsAsync();
+
+        Task<RolePermissionDto?> UpdatePermissionAsync(
+            int roleId,
+            string moduleKey,
+            string capability);
     }
 }

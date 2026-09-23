@@ -1,4 +1,6 @@
-﻿namespace ECommerce.API.Models
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace ECommerce.API.Models
 {
     public class Product
     {
@@ -10,6 +12,7 @@
 
         public decimal Price { get; set; }
 
+        [ConcurrencyCheck]
         public int Stock { get; set; }
 
         public string? ImageUrl { get; set; }
@@ -28,3 +31,4 @@
         public ICollection<Deal> Deals { get; set; } = new List<Deal>();
     }
 }
+

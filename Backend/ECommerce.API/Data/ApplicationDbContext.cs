@@ -19,6 +19,7 @@ namespace ECommerce.API.Data
         public DbSet<User> Users => Set<User>();
         public DbSet<Role> Roles => Set<Role>();
         public DbSet<UserRole> UserRoles => Set<UserRole>();
+        public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
 
         // =========================
@@ -77,6 +78,10 @@ namespace ECommerce.API.Data
             ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<RolePermission>()
+                .HasIndex(x => new { x.RoleId, x.ModuleKey })
+                .IsUnique();
 
 
             // =========================================================
@@ -416,6 +421,99 @@ namespace ECommerce.API.Data
                     Name = "Customer"
                 }
             );
+
+            // =========================================================
+            // ROLE PERMISSION SEED — defaults mirror the matrix that
+            // was previously hard-coded in AdminRolePermissions.jsx.
+            // Admins can override any cell at runtime via
+            // PUT /api/Admin/permissions/{roleId}/{moduleKey}.
+            // =========================================================
+
+            var modules = new[]
+            {
+                "dashboard",
+                "manage_sellers",
+                "manage_customers",
+                "categories_products",
+                "stocks_deals",
+                "orders_shipping",
+                "refunds",
+                "reviews",
+                "messages",
+                "role_permissions"
+            };
+
+            // Default capability matrix — keys: (module, roleId).
+            // Values come from the previous built-in matrix:
+            //   true   → "allow"
+            //   false  → "deny"
+            //   "own"  → "own"
+            //   "read" → "read"
+            //   "write"→ "write"
+            var defaultCapabilities = new Dictionary<(string module, int roleId), string>
+            {
+                [("dashboard", 1)] = "allow",
+                [("dashboard", 2)] = "allow",
+                [("dashboard", 3)] = "allow",
+
+                [("manage_sellers", 1)] = "allow",
+                [("manage_sellers", 2)] = "deny",
+                [("manage_sellers", 3)] = "deny",
+
+                [("manage_customers", 1)] = "allow",
+                [("manage_customers", 2)] = "deny",
+                [("manage_customers", 3)] = "deny",
+
+                [("categories_products", 1)] = "allow",
+                [("categories_products", 2)] = "own",
+                [("categories_products", 3)] = "deny",
+
+                [("stocks_deals", 1)] = "allow",
+                [("stocks_deals", 2)] = "allow",
+                [("stocks_deals", 3)] = "deny",
+
+                [("orders_shipping", 1)] = "allow",
+                [("orders_shipping", 2)] = "own",
+                [("orders_shipping", 3)] = "own",
+
+                [("refunds", 1)] = "allow",
+                [("refunds", 2)] = "deny",
+                [("refunds", 3)] = "allow",
+
+                [("reviews", 1)] = "allow",
+                [("reviews", 2)] = "read",
+                [("reviews", 3)] = "write",
+
+                [("messages", 1)] = "deny",
+                [("messages", 2)] = "allow",
+                [("messages", 3)] = "allow",
+
+                [("role_permissions", 1)] = "allow",
+                [("role_permissions", 2)] = "deny",
+                [("role_permissions", 3)] = "deny",
+            };
+
+            var permissionSeed = new List<RolePermission>();
+            var seedId = 1;
+
+            foreach (var module in modules)
+            {
+                foreach (var roleId in new[] { 1, 2, 3 })
+                {
+                    permissionSeed.Add(new RolePermission
+                    {
+                        Id = seedId++,
+                        RoleId = roleId,
+                        ModuleKey = module,
+                        Capability =
+                            defaultCapabilities[(module, roleId)],
+                        UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0,
+                            DateTimeKind.Utc),
+                    });
+                }
+            }
+
+            modelBuilder.Entity<RolePermission>().HasData(permissionSeed);
             // =========================================================
             // feedback -> product
             // =========================================================

@@ -548,5 +548,163 @@ namespace ECommerce.API.Controllers
                 });
             }
         }
+
+
+        // =========================================================
+        // PHASE 26 — ROLE PERMISSIONS CONSOLE
+        // =========================================================
+
+        [HttpGet("roles")]
+        public async Task<IActionResult>
+            GetRoles()
+        {
+            try
+            {
+                var roles = await _adminService.GetRolesAsync();
+                return Ok(roles);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        [HttpGet("roles/{roleId:int}/users")]
+        public async Task<IActionResult>
+            GetUsersInRole(int roleId)
+        {
+            try
+            {
+                var users = await _adminService
+                    .GetUsersInRoleAsync(roleId);
+
+                return Ok(users);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        [HttpGet("role-users")]
+        public async Task<IActionResult>
+            GetAllRoleUsers()
+        {
+            try
+            {
+                var users = await _adminService
+                    .GetAllUsersWithRolesAsync();
+
+                return Ok(users);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        [HttpPut("users/{userId:int}/role")]
+        public async Task<IActionResult>
+            UpdateUserRole(
+                int userId,
+                UpdateUserRoleDto dto)
+        {
+            try
+            {
+                var adminId = GetUserId();
+
+                await _adminService.UpdateUserRoleAsync(
+                    adminId,
+                    userId,
+                    dto.RoleId);
+
+                return Ok(new
+                {
+                    message =
+                        "User role updated successfully."
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        [HttpGet("permissions")]
+        public async Task<IActionResult>
+            GetPermissions()
+        {
+            try
+            {
+                var perms = await _adminService.GetAllPermissionsAsync();
+                return Ok(perms);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        [HttpPut("permissions/{roleId:int}/{moduleKey}")]
+        public async Task<IActionResult>
+            UpdatePermission(
+                int roleId,
+                string moduleKey,
+                UpdateRolePermissionDto dto)
+        {
+            try
+            {
+                var updated = await _adminService.UpdatePermissionAsync(
+                    roleId,
+                    moduleKey,
+                    dto.Capability);
+
+                if (updated == null)
+                {
+                    return NotFound(new
+                    {
+                        message =
+                            "Permission entry not found."
+                    });
+                }
+
+                return Ok(updated);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        private int GetUserId()
+        {
+            var claim = User.FindFirst(
+                System.Security.Claims.ClaimTypes.NameIdentifier);
+
+            if (claim == null)
+            {
+                throw new UnauthorizedAccessException();
+            }
+
+            return int.Parse(claim.Value);
+        }
     }
 }

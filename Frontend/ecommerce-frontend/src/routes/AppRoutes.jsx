@@ -35,7 +35,9 @@ import ShippingManagement from '../pages/seller/ShippingManagement';
 import SellerReviews from '../pages/seller/SellerReviews';
 import SellerMessages from '../pages/seller/SellerMessages';
 import AdminReviews from '../pages/admin/AdminReviews';
+import AdminRolePermissions from '../pages/admin/AdminRolePermissions';
 import SellerMessagesErrorBoundary from '../components/SellerMessagesErrorBoundary';
+import PageErrorBoundary from '../components/PageErrorBoundary';
 
 const AppRoutes = () => {
   return (
@@ -71,6 +73,7 @@ const AppRoutes = () => {
         <Route element={<AdminLayout />}>
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/reviews" element={<AdminReviews />} />
+          <Route path="/admin/roles" element={<PageErrorBoundary label="role permissions"><AdminRolePermissions /></PageErrorBoundary>} />
         </Route>
       </Route>
 

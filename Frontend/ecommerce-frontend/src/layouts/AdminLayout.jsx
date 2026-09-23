@@ -74,6 +74,10 @@ const AdminLayout = () => {
           <Link to="/admin/reviews" className="nav-link text-white">
             Reviews
           </Link>
+
+          <Link to="/admin/roles" className="nav-link text-white">
+            Role Permissions
+          </Link>
         </nav>
 
         <hr />
