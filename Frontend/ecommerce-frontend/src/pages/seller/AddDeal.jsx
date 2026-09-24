@@ -7,16 +7,33 @@ import {
   getSellerProducts,
 } from "../../services/sellerService";
 
+// How far in the past we're willing to accept as a "start now" pick.
+// Covers the small gap between the seller's browser clock and the
+// API server's clock so "Start at this moment" still works even if
+// the two clocks disagree by a few seconds.
+const CLOCK_SKEW_TOLERANCE_MS = 5 * 60_000;
+
 const toDateTimeLocal = (date) => {
   const offset = date.getTimezoneOffset() * 60_000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 };
 
-const getMinimumStartDate = () =>
-  toDateTimeLocal(new Date(Date.now() + 60_000));
-
+// Default a new deal to start right now — not 5 minutes from now.
+// The customer-facing product query filters by "now >= start", so
+// any future start time hides the deal from buyers until then,
+// producing exactly the bug where the deal was visible to the
+// seller/admin but invisible to customers for 5 minutes after
+// creation. Letting the seller choose "now" makes the deal
+// immediately visible on the storefront.
 const getDefaultStartDate = () =>
-  toDateTimeLocal(new Date(Date.now() + 5 * 60_000));
+  toDateTimeLocal(new Date());
+
+// Allow the input's `min` to be a few minutes in the past so the
+// seller can pick "start right now" without their clock beating the
+// server by a second. The pickier `startDate < new Date()` rule in
+// handleSubmit uses the same tolerance.
+const getMinimumStartDate = () =>
+  toDateTimeLocal(new Date(Date.now() - CLOCK_SKEW_TOLERANCE_MS));
 
 const AddDeal = () => {
   const navigate = useNavigate();
@@ -73,8 +90,10 @@ const AddDeal = () => {
       return;
     }
 
-    if (startDate < new Date()) {
-      toast.error("The deal start date/time cannot be in the past.");
+    if (startDate < new Date(Date.now() - CLOCK_SKEW_TOLERANCE_MS)) {
+      toast.error(
+        "The deal start date/time is too far in the past.",
+      );
       return;
     }
 

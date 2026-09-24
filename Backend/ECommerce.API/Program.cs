@@ -6,6 +6,7 @@ using ECommerce.API.Middleware;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 
@@ -24,6 +25,40 @@ var builder = WebApplication.CreateBuilder(args);
 // ==========================================
 
 builder.Services.AddControllers();
+
+// Replace the default ProblemDetails response that [ApiController] emits
+// for invalid ModelState. The default is "One or more validation errors
+// occurred." with the per-field details buried under `errors` — usable for
+// debugging, opaque for end users. Flatten it into a predictable
+// `{ message, errors: { field: [messages] } }` shape that the React
+// client can read directly.
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var fieldErrors = context.ModelState
+            .Where(kv => kv.Value != null && kv.Value.Errors.Count > 0)
+            .ToDictionary(
+                kv => kv.Key,
+                kv => kv.Value!.Errors
+                    .Select(e =>
+                        string.IsNullOrWhiteSpace(e.ErrorMessage)
+                            ? (e.Exception?.Message ?? "Invalid value.")
+                            : e.ErrorMessage)
+                    .ToArray()
+            );
+
+        var summary = fieldErrors.Count == 0
+            ? "The submitted data is invalid."
+            : "Please fix the highlighted fields and try again.";
+
+        return new BadRequestObjectResult(new
+        {
+            message = summary,
+            errors = fieldErrors,
+        });
+    };
+});
 
 // The React development server runs on a different origin (localhost:5173).
 // Allow it to call this API from the browser; Swagger is same-origin and does

@@ -2,6 +2,7 @@ import React from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
+import ThemeToggle from "../components/common/ThemeToggle";
 
 const AdminLayout = () => {
   const { logout, user } = useAuth();
@@ -17,7 +18,10 @@ const AdminLayout = () => {
       {/* Sidebar */}
 
       <aside className="bg-dark text-white p-3" style={{ width: "250px" }}>
-        <h4 className="mb-4">Admin Panel</h4>
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <h4 className="mb-0">Admin Panel</h4>
+          <ThemeToggle variant="switch" className="theme-toggle-sidebar" />
+        </div>
 
         <div className="mb-4">
           <small className="text-secondary">Logged in as</small>

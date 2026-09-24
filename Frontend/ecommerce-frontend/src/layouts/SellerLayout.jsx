@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Link, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
+import ThemeToggle from "../components/common/ThemeToggle";
 import { getSellerUnreadCount } from "../services/sellerService";
 
 const SellerLayout = () => {
@@ -60,7 +62,10 @@ const SellerLayout = () => {
   return (
     <div className="d-flex min-vh-100">
       <div className="bg-dark text-white p-3" style={{ width: "250px" }}>
-        <h4 className="mb-4">Seller Panel</h4>
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <h4 className="mb-0">Seller Panel</h4>
+          <ThemeToggle variant="switch" className="theme-toggle-sidebar" />
+        </div>
 
         <div className="d-flex flex-column gap-2">
           <Link
@@ -89,6 +94,13 @@ const SellerLayout = () => {
             className="text-white text-decoration-none p-2 rounded"
           >
             Add Product
+          </Link>
+
+          <Link
+            to="/seller/categories"
+            className="text-white text-decoration-none p-2 rounded"
+          >
+            Categories
           </Link>
 
           <Link

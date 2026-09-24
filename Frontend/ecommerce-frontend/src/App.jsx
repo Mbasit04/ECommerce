@@ -4,6 +4,7 @@ import { ToastContainer } from "react-toastify";
 
 import { AuthProvider } from "./context/AuthContext";
 import { CartProvider } from "./context/CartContext";
+import { ThemeProvider } from "./context/ThemeContext";
 
 import ProtectedRoute from "./routes/ProtectedRoute";
 import AdminRoute from "./routes/AdminRoute";
@@ -15,6 +16,7 @@ import SellerLayout from "./layouts/SellerLayout";
 import CustomerLayout from "./layouts/CustomerLayout";
 
 import Login from "./pages/auth/Login";
+import Register from "./pages/auth/Register";
 
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import Sellers from "./pages/admin/Sellers";
@@ -62,6 +64,7 @@ import SellerEditDeal from "./pages/seller/EditDeal";
 import ShippingManagement from "./pages/seller/ShippingManagement";
 import SellerReviews from "./pages/seller/SellerReviews";
 import SellerMessages from "./pages/seller/SellerMessages";
+import SellerCategories from "./pages/seller/SellerCategories";
 import SellerMessagesErrorBoundary from "./components/SellerMessagesErrorBoundary";
 
 import CustomerMessages from "./pages/customer/CustomerMessages";
@@ -83,19 +86,21 @@ const CustomerDashboard = () => <h1>Customer Dashboard</h1>;
 
 function App() {
   return (
-    <AuthProvider>
-      <CartProvider>
-        <BrowserRouter>
-          <Routes>
-          <Route element={<CustomerLayout />}>
-            <Route path="/" element={<CustomerHome />} />
-            <Route path="/products" element={<CustomerProducts />} />
-            <Route path="/products/:id" element={<ProductDetails />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-          </Route>
+    <ThemeProvider>
+      <AuthProvider>
+        <CartProvider>
+          <BrowserRouter>
+            <Routes>
+            <Route element={<CustomerLayout />}>
+              <Route path="/" element={<CustomerHome />} />
+              <Route path="/products" element={<CustomerProducts />} />
+              <Route path="/products/:id" element={<ProductDetails />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+            </Route>
 
-          <Route path="/login" element={<Login />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
 
           <Route path="/unauthorized" element={<Unauthorized />} />
 
@@ -195,6 +200,11 @@ function App() {
                 <Route path="reviews" element={<SellerReviews />} />
 
                 <Route
+                  path="/seller/categories"
+                  element={<SellerCategories />}
+                />
+
+                <Route
                   path="messages"
                   element={
                     <SellerMessagesErrorBoundary>
@@ -229,9 +239,10 @@ function App() {
         </Routes>
 
         <ToastContainer position="top-right" autoClose={3000} />
-        </BrowserRouter>
-      </CartProvider>
-    </AuthProvider>
+          </BrowserRouter>
+        </CartProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

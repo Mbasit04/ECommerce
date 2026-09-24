@@ -59,6 +59,21 @@ namespace ECommerce.API.Services
                     "This product already has an overlapping active deal.");
             }
 
+            // Sellers almost always want a deal that goes live the moment
+            // they click "Create". If the submitted StartDate is in the
+            // very near future (under 2 minutes ahead), snap it to "now"
+            // — otherwise the customer-facing product query (which filters
+            // by "now >= StartDate") will silently hide the deal for those
+            // few minutes, and the seller will think nothing happened.
+            // Far-future starts (scheduled launches, Black Friday, etc.)
+            // are left alone.
+            var nowUtc = DateTime.UtcNow;
+            var startDate = dto.StartDate;
+            if (startDate > nowUtc && startDate <= nowUtc.AddMinutes(2))
+            {
+                startDate = nowUtc;
+            }
+
             var deal = new Deal
             {
                 ProductId = dto.ProductId,
@@ -67,7 +82,7 @@ namespace ECommerce.API.Services
                 // creates a deal on a seller's behalf.
                 SellerId = product.SellerId,
                 DiscountPercentage = dto.DiscountPercentage,
-                StartDate = dto.StartDate,
+                StartDate = startDate,
                 EndDate = dto.EndDate,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
@@ -229,7 +244,19 @@ namespace ECommerce.API.Services
             deal.DiscountPercentage =
                 dto.DiscountPercentage;
 
-            deal.StartDate = dto.StartDate;
+            // Same near-future clamp as in CreateAsync — keeps updates
+            // consistent: editing a deal never lands it in a brief,
+            // invisible "upcoming" state from the customer's point of
+            // view.
+            var updateNowUtc = DateTime.UtcNow;
+            var newStart = dto.StartDate;
+            if (newStart > updateNowUtc &&
+                newStart <= updateNowUtc.AddMinutes(2))
+            {
+                newStart = updateNowUtc;
+            }
+
+            deal.StartDate = newStart;
 
             deal.EndDate = dto.EndDate;
 

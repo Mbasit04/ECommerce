@@ -72,6 +72,30 @@ export const getSellerCategories = async () => {
   const response = await api.get("/Seller/categories");
   return response.data;
 };
+
+// ============================================================
+// SELLER CATEGORY MANAGEMENT (mirrors Admin's category page)
+// ============================================================
+//
+// Sellers used to be blocked from creating categories — meaning a
+// seller who wanted to list, say, "Toys" had to wait for an admin.
+// These endpoints expose the same category CRUD the admin uses, but
+// routed under /Seller/categories (which the backend also serves).
+
+// GET /api/Seller/categories — every category in the catalog.
+export const getSellerCategoriesList = async () => {
+  const response = await api.get("/Seller/categories");
+  return response.data;
+};
+
+// POST /api/Seller/categories — seller adds a new shared category.
+export const addSellerCategory = async (categoryData) => {
+  const response = await api.post(
+    "/Seller/categories",
+    categoryData,
+  );
+  return response.data;
+};
 export const addSellerProduct = async (productData) => {
   const response = await api.post(
     "/Seller/products",

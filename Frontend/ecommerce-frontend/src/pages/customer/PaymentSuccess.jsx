@@ -2,14 +2,17 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { confirmStripeCheckout } from "../../services/paymentService";
+import { useCart } from "../../context/CartContext";
 
 const PaymentSuccess = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const { refresh: refreshCart } = useCart();
 
     const [status, setStatus] = useState("verifying");
     const [orderId, setOrderId] = useState(null);
     const [errorMessage, setErrorMessage] = useState("");
+    const [cardLast4, setCardLast4] = useState(null);
     const confirmRef = useRef(false);
 
     useEffect(() => {
@@ -31,6 +34,13 @@ const PaymentSuccess = () => {
                 sessionStorage.getItem("shippingAddress");
             const contactNumber =
                 sessionStorage.getItem("contactNumber");
+
+            // Surface a friendly "card ending in 1234" confirmation —
+            // we stored only the last 4 in Checkout, never the PAN.
+            const last4 = sessionStorage.getItem("cardLast4");
+            if (last4) {
+                setCardLast4(last4);
+            }
 
             if (redirectStatus !== "succeeded" || !paymentIntentId) {
                 setStatus("failed");
@@ -59,29 +69,65 @@ const PaymentSuccess = () => {
                 // accidentally re-finalize.
                 sessionStorage.removeItem("shippingAddress");
                 sessionStorage.removeItem("contactNumber");
+                sessionStorage.removeItem("cardLast4");
 
-                // Notify cart listeners so the badge updates.
+                // Notify any other cart listeners (legacy code paths).
                 window.dispatchEvent(new Event("cartUpdated"));
                 window.dispatchEvent(new Event("cart-updated"));
+
+                // Direct refresh — don't rely on the event being heard
+                // before this component unmounts.
+                try {
+                    await refreshCart();
+                } catch (refreshErr) {
+                    console.warn("Cart refresh after payment failed:", refreshErr);
+                }
 
                 setOrderId(order?.orderId || order?.id);
                 setStatus("succeeded");
                 toast.success("Payment successful! Your order has been placed.");
             } catch (err) {
+                console.error("Payment finalize error:", err);
+
+                // Pull the most useful message out of the response. The
+                // backend uses { message } on throws and { message, errors }
+                // on ModelState validation failures.
+                const data = err?.response?.data || {};
+                const fieldErrors = data.errors;
+                let message = data.message || data.title;
+
+                if (!message && fieldErrors && typeof fieldErrors === "object") {
+                    const firstField = Object.keys(fieldErrors)[0];
+                    if (firstField) {
+                        const firstMsgs = fieldErrors[firstField];
+                        if (Array.isArray(firstMsgs) && firstMsgs.length > 0) {
+                            message = `${firstField}: ${firstMsgs[0]}`;
+                        }
+                    }
+                }
+
+                if (!message) {
+                    message =
+                        "We could not confirm your payment. Please contact support if you were charged.";
+                }
+
                 setStatus("failed");
-                setErrorMessage(
-                    err?.response?.data?.message ||
-                        "We could not confirm your payment. Please contact support if you were charged."
-                );
-                toast.error(
-                    err?.response?.data?.message ||
-                        "Failed to confirm payment."
-                );
+                setErrorMessage(message);
+                toast.error(message);
+
+                // Even on failure, try to refresh the cart in case the
+                // backend partial-completed (order saved but cart not
+                // cleared) — better to show truth than a stale badge.
+                try {
+                    await refreshCart();
+                } catch (_) {
+                    /* swallow — refresh is best-effort */
+                }
             }
         };
 
         finalizeOrder();
-    }, [searchParams]);
+    }, [searchParams, refreshCart]);
 
     if (status === "verifying") {
         return (
@@ -119,6 +165,12 @@ const PaymentSuccess = () => {
                         Thank you for your order. We've emailed the details and
                         will ship your items soon.
                     </p>
+                    {cardLast4 && (
+                        <p className="text-muted small">
+                            Card ending in <strong>•••• {cardLast4}</strong>{" "}
+                            was charged successfully.
+                        </p>
+                    )}
                 </div>
 
                 <div className="d-flex justify-content-center gap-2">

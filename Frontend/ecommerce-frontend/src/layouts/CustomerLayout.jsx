@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { Outlet, Link, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
+import { useTheme } from "../context/ThemeContext";
+import ThemeToggle from "../components/common/ThemeToggle";
 import { getCustomerUnreadCount } from "../services/messageService";
 
 const CustomerLayout = () => {
@@ -232,6 +234,8 @@ const CustomerLayout = () => {
                   Login
                 </Link>
               )}
+
+              <ThemeToggle className="theme-toggle-navbar" />
 
               {/* Mobile toggler — opens a panel that contains the search */}
               <button

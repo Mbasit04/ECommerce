@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ECommerce.API.DTOs.Category;
 using ECommerce.API.DTOs.Seller;
 using ECommerce.API.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -13,9 +14,18 @@ namespace ECommerce.API.Controllers
     {
         private readonly ISellerService _sellerService;
 
-        public SellerController(ISellerService sellerService)
+        // Categories are owned by the admin catalog but sellers need
+        // to add new ones (e.g. "Toys", "Skincare") so they're not
+        // blocked from listing niche products. The category service
+        // itself stays admin-managed; we just expose a slim POST here.
+        private readonly ICategoryService _categoryService;
+
+        public SellerController(
+            ISellerService sellerService,
+            ICategoryService categoryService)
         {
             _sellerService = sellerService;
+            _categoryService = categoryService;
         }
 
         [HttpGet("dashboard")]
@@ -42,6 +52,34 @@ namespace ECommerce.API.Controllers
                 await _sellerService.GetCategoriesAsync();
 
             return Ok(result);
+        }
+
+        // POST /api/Seller/categories — lets a seller add a brand-new
+        // category to the shared catalog. The created category is
+        // immediately available to every seller (and to customers
+        // browsing the storefront). Validation rules match the admin
+        // path (Name 2-100 chars, optional description up to 500).
+        [HttpPost("categories")]
+        public async Task<IActionResult> CreateCategory(
+            CreateCategoryDto dto)
+        {
+            try
+            {
+                var category =
+                    await _categoryService.CreateAsync(dto);
+
+                return CreatedAtAction(
+                    "GetCategories",
+                    new { id = category.Id },
+                    category);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
         }
 
         [HttpPost("products")]

@@ -31,6 +31,15 @@ namespace ECommerce.API.Services
 
         public async Task<LoginResponseDto> RegisterAsync(RegisterDto dto)
         {
+            // Reject anything other than Customer / Seller. Admin self-
+            // registration is intentionally not allowed; an Admin must be
+            // promoted by another Admin through the admin endpoints.
+            if (!dto.IsRoleAllowed())
+            {
+                throw new Exception(
+                    "Invalid role. Self-registration is only allowed for Customer or Seller accounts.");
+            }
+
             var existingUser = await _context.Users
                 .FirstOrDefaultAsync(x => x.Email == dto.Email);
 
@@ -39,12 +48,15 @@ namespace ECommerce.API.Services
                 throw new Exception("Email already exists.");
             }
 
-            var customerRole = await _context.Roles
-                .FirstOrDefaultAsync(x => x.Name == "Customer");
+            var roleName = dto.ResolvedRole;
 
-            if (customerRole == null)
+            var requestedRole = await _context.Roles
+                .FirstOrDefaultAsync(x => x.Name == roleName);
+
+            if (requestedRole == null)
             {
-                throw new Exception("Customer role does not exist.");
+                throw new Exception(
+                    $"Role '{roleName}' does not exist. Please contact support.");
             }
 
             var user = new User
@@ -65,7 +77,7 @@ namespace ECommerce.API.Services
             var userRole = new UserRole
             {
                 UserId = user.Id,
-                RoleId = customerRole.Id
+                RoleId = requestedRole.Id
             };
 
             _context.UserRoles.Add(userRole);

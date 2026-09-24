@@ -5,6 +5,8 @@ import { toast } from "react-toastify";
 import { getCart } from "../../services/cartService";
 import { checkout } from "../../services/orderService";
 import { useAuth } from "../../context/AuthContext";
+import CardDetailsForm from "../../components/customer/CardDetailsForm";
+import { validateCard } from "../../utils/cardValidator";
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -26,6 +28,18 @@ const Checkout = () => {
   const [paymentMethod, setPaymentMethod] = useState("COD");
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+
+  // Card details — only used when paymentMethod === "STRIPE". The
+  // card is validated client-side before the user is sent to the
+  // Stripe-hosted payment page, so a bad number, expired card or
+  // missing CVV never reaches Stripe in the first place.
+  const [card, setCard] = useState({
+    cardholderName: "",
+    cardNumber: "",
+    expiry: "",
+    cvv: "",
+  });
+  const [cardErrors, setCardErrors] = useState({});
 
   useEffect(() => {
     loadCheckoutData();
@@ -142,8 +156,43 @@ const Checkout = () => {
       setProcessing(true);
 
       if (paymentMethod === "STRIPE") {
+        // Validate the card details before handing off to Stripe.
+        // If anything is wrong, ask the customer to fix it instead
+        // of sending them into the Stripe form with a card that
+        // would just be rejected there.
+        const cardValidation = validateCard(card);
+        if (!cardValidation.isValid) {
+          setCardErrors(cardValidation.errors);
+
+          // Pick the first error to surface as the headline toast —
+          // the per-field error helpers below already show the rest
+          // in the form.
+          const firstError =
+            cardValidation.errors.cardNumber ||
+            cardValidation.errors.cardholderName ||
+            cardValidation.errors.expiry ||
+            cardValidation.errors.cvv ||
+            "Please add a valid card to continue.";
+
+          toast.error(firstError);
+          toast.warning(
+            "Please enter a valid card to place your order.",
+          );
+          setProcessing(false);
+          return;
+        }
+
+        // Card passed validation — clear any old errors and stash
+        // a mask-only summary in sessionStorage so Stripe's success
+        // page can show the user which card was charged without
+        // ever storing the full PAN.
+        setCardErrors({});
         sessionStorage.setItem("shippingAddress", address);
         sessionStorage.setItem("contactNumber", contact);
+        sessionStorage.setItem(
+          "cardLast4",
+          (card.cardNumber || "").replace(/\D/g, "").slice(-4),
+        );
         navigate("/customer/checkout/stripe");
         return;
       }
@@ -385,6 +434,18 @@ const Checkout = () => {
                       <strong>Credit / Debit Card:</strong> Pay securely online using Stripe card checkout.
                     </small>
                   </div>
+                )}
+
+                {/* Card details — only rendered for STRIPE. The form
+                    runs local validation (Luhn + expiry + CVV length)
+                    before letting the order continue. */}
+                {paymentMethod === "STRIPE" && (
+                  <CardDetailsForm
+                    value={card}
+                    onChange={setCard}
+                    disabled={processing}
+                    errors={cardErrors}
+                  />
                 )}
               </div>
             </div>

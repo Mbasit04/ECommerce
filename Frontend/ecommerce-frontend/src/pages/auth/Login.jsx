@@ -13,12 +13,18 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [touched, setTouched] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setTouched(true);
+    setError("");
 
     if (!email || !password) {
-      toast.error("Email and password are required.");
+      const msg = "Email and password are required.";
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
@@ -30,7 +36,9 @@ const Login = () => {
       const token = data.token;
 
       if (!token) {
-        toast.error("Token was not returned by server.");
+        const msg = "Token was not returned by server.";
+        setError(msg);
+        toast.error(msg);
         return;
       }
 
@@ -59,12 +67,28 @@ const Login = () => {
     } catch (error) {
       console.error("Login error:", error);
 
-      const message =
-        error.response?.data?.message ||
-        (error.request
-          ? "Unable to reach the API. Confirm the backend is running."
-          : "Unable to sign in. Please try again.");
+      const data = error.response?.data || {};
+      const fieldErrors = data.errors;
 
+      let message = data.message || data.title;
+
+      if (!message && fieldErrors && typeof fieldErrors === "object") {
+        const firstField = Object.keys(fieldErrors)[0];
+        if (firstField) {
+          const firstMsgs = fieldErrors[firstField];
+          if (Array.isArray(firstMsgs) && firstMsgs.length > 0) {
+            message = `${firstField}: ${firstMsgs[0]}`;
+          }
+        }
+      }
+
+      if (!message) {
+        message = error.request
+          ? "Unable to reach the API. Confirm the backend is running."
+          : "Unable to sign in. Please try again.";
+      }
+
+      setError(message);
       toast.error(message);
     } finally {
       setLoading(false);
@@ -72,118 +96,141 @@ const Login = () => {
   };
 
   return (
-    <div className="row justify-content-center my-5">
-      <div className="col-md-7 col-lg-5">
-        <div
-          className="rounded-4 p-4 p-md-5 mb-4 text-white shadow-sm"
-          style={{
-            background:
-              "linear-gradient(120deg, #0d6efd 0%, #6610f2 60%, #d63384 100%)",
-          }}
-        >
-          <div className="d-flex align-items-center gap-3">
-            <span
-              className="bg-white text-primary rounded-circle d-flex align-items-center justify-content-center"
-              style={{ width: 56, height: 56, fontSize: 26 }}
-              aria-hidden="true"
+    <div className="auth-page">
+      <div className="container">
+        <div className="row justify-content-center">
+          <div className="col-md-9 col-lg-7 col-xl-5">
+            <div
+              className="auth-hero d-flex align-items-center gap-3"
+              role="region"
+              aria-label="Sign in to your account"
             >
-              🔐
-            </span>
-            <div>
-              <h1 className="h4 mb-1">Welcome back</h1>
-              <p className="mb-0 opacity-75">
-                Sign in to continue shopping.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="card shadow-sm border-0">
-          <div className="card-body p-4">
-            <h2 className="h5 mb-3">Sign in to your account</h2>
-
-            <form onSubmit={handleSubmit}>
-              <div className="mb-3">
-                <label className="form-label fw-semibold">Email</label>
-                <input
-                  type="email"
-                  className="form-control form-control-lg"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  disabled={loading}
-                  autoComplete="email"
-                  required
-                />
+              <span className="auth-hero-badge" aria-hidden="true">
+                🔐
+              </span>
+              <div>
+                <h1>Welcome back</h1>
+                <p>Sign in to continue shopping.</p>
               </div>
+            </div>
 
-              <div className="mb-3">
-                <div className="d-flex justify-content-between align-items-center">
-                  <label className="form-label fw-semibold mb-0">
-                    Password
-                  </label>
-                  <Link
-                    to="/forgot-password"
-                    className="small text-decoration-none"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
-                <div className="input-group mt-1">
-                  <input
-                    type={showPwd ? "text" : "password"}
-                    className="form-control form-control-lg"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    disabled={loading}
-                    autoComplete="current-password"
-                    required
-                  />
+            <div className="auth-card">
+              <h2>Sign in to your account</h2>
+
+              {error && (
+                <div
+                  className="auth-error-banner"
+                  role="alert"
+                  aria-live="assertive"
+                >
+                  <span className="auth-error-icon" aria-hidden="true">
+                    !
+                  </span>
+                  <span className="auth-error-text">{error}</span>
                   <button
                     type="button"
-                    className="btn btn-outline-secondary"
-                    onClick={() => setShowPwd((v) => !v)}
-                    disabled={loading}
-                    aria-label={
-                      showPwd ? "Hide password" : "Show password"
-                    }
+                    className="auth-error-dismiss"
+                    onClick={() => setError("")}
+                    aria-label="Dismiss error"
                   >
-                    {showPwd ? "🙈" : "👁️"}
+                    ×
                   </button>
                 </div>
-              </div>
+              )}
 
-              <button
-                type="submit"
-                className="btn btn-primary btn-lg w-100"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <span
-                      className="spinner-border spinner-border-sm me-2"
-                      role="status"
+              <form onSubmit={handleSubmit} noValidate>
+                <div className="mb-3">
+                  <label htmlFor="login-email" className="form-label">
+                    Email
+                  </label>
+                  <input
+                    id="login-email"
+                    type="email"
+                    className={
+                      "form-control form-control-lg" +
+                      (touched && !email ? " is-invalid-themed" : "")
+                    }
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (error) setError("");
+                    }}
+                    placeholder="you@example.com"
+                    disabled={loading}
+                    autoComplete="email"
+                    aria-invalid={touched && !email}
+                    required
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <div className="d-flex justify-content-between align-items-center">
+                    <label htmlFor="login-password" className="form-label mb-0">
+                      Password
+                    </label>
+                    <Link
+                      to="/forgot-password"
+                      className="small text-decoration-none"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
+                  <div className="input-group mt-1">
+                    <input
+                      id="login-password"
+                      type={showPwd ? "text" : "password"}
+                      className={
+                        "form-control form-control-lg" +
+                        (touched && !password ? " is-invalid-themed" : "")
+                      }
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (error) setError("");
+                      }}
+                      placeholder="Enter your password"
+                      disabled={loading}
+                      autoComplete="current-password"
+                      aria-invalid={touched && !password}
+                      required
                     />
-                    Signing in...
-                  </>
-                ) : (
-                  "Sign in"
-                )}
-              </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={() => setShowPwd((v) => !v)}
+                      disabled={loading}
+                      aria-label={
+                        showPwd ? "Hide password" : "Show password"
+                      }
+                    >
+                      {showPwd ? "🙈" : "👁️"}
+                    </button>
+                  </div>
+                </div>
 
-              <div className="text-center mt-3">
-                <span className="text-muted small">
-                  New here?{" "}
-                </span>
-                <Link
-                  to="/register"
-                  className="text-decoration-none fw-semibold"
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-lg w-100 auth-submit"
+                  disabled={loading}
                 >
-                  Create an account
-                </Link>
-              </div>
-            </form>
+                  {loading ? (
+                    <>
+                      <span
+                        className="spinner-border spinner-border-sm me-2"
+                        role="status"
+                      />
+                      Signing in...
+                    </>
+                  ) : (
+                    "Sign in"
+                  )}
+                </button>
+
+                <p className="auth-meta mb-0">
+                  New here? <Link to="/register">Create an account</Link>
+                </p>
+              </form>
+            </div>
           </div>
         </div>
       </div>
